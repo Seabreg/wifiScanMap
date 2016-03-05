@@ -111,10 +111,44 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
                     
                     
                     '''
-                    
+            lastLat = None
+            lastLon = None
+            count = 0
+            networks_same_position = []
             for n in networks["networks"]:
-                html+= '''
-                setMarker(markers, '''+str(n[5])+''', '''+str(n[4])+''', "'''+n[1]+'''", "marker.png");'''
+                lat = n[5]
+                lon = n[4]
+                name = n[1]
+                if lastLat == None:
+                  lastLat = lat
+                  lastLon = lon
+                if lat == lastLat and lon == lastLon:
+                  count += 1
+                  networks_same_position.append(n)
+                else:
+                  names = '<ul>'
+                  open_icon=''
+                  for i in networks_same_position:
+                    key = ''
+                    if not i[2]:
+                      open_icon='-open'
+                    else:
+                      key = '<img src=\\"locked.png\\">'
+                    names = "%s<li>%s %s</li>"%(names,key, i[1])
+                  name = "%s</ul>"%names
+                  icon = "marker%s.png"%open_icon
+                  if count >= 2:
+                    icon ="marker-few%s.png"%open_icon
+                  if count >= 4:
+                    icon ="marker-many%s.png"%open_icon
+                  html+= '''
+                setMarker(markers, '''+str(lat)+''', '''+str(lon)+''', "'''+names+'''", "'''+icon+'''");'''
+                  networks_same_position = []
+                  networks_same_position.append(n)
+                  count = 1
+                  
+                lastLat = lat
+                lastLon = lon
 
             html +='''
                     current_position = new OpenLayers.Marker(lonLat);
