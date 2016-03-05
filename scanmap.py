@@ -2,6 +2,7 @@
 
 import subprocess
 import threading
+from threading import Lock
 import time
 from gps import *
 import os
@@ -308,7 +309,9 @@ class WebuiHTTPServer(ThreadingMixIn, HTTPServer, Thread):
 class Application:
     def __init__(self, args):
         self.args = args
-        self.manufacturers = '/usr/share/wireshark/manuf'
+        self.manufacturers_db = '/usr/share/wireshark/manuf'
+        self.manufacturers = {}
+        self.lock = Lock()
         self.stopped = False
         self.networks = []
         self.session = gps(mode=WATCH_ENABLE)
@@ -342,49 +345,56 @@ class Application:
             port = int(self.args.www)
         else:
             port = 8686
+            
+        self.loadManufacturers()
         self.httpd = WebuiHTTPServer(("", port),self, WebuiHTTPHandler)
         self.httpd.start()
     
     def getStat(self):
       stat = {}
-      self.query.execute('''select count(*) from wifis where encryption == 0''')
-      stat['open_count'] = self.query.fetchone()[0]
-      
-      self.query.execute('''select count(*) from wifis''')
-      stat['total'] = self.query.fetchone()[0]
-      
-      self.query.execute('''select essid, count(*) as nb from wifis group by essid order by nb desc limit 15''')
-      stat['best'] = self.query.fetchall()
+      with self.lock:
+        self.query.execute('''select count(*) from wifis where encryption == 0''')
+        stat['open_count'] = self.query.fetchone()[0]
+        
+        self.query.execute('''select count(*) from wifis''')
+        stat['total'] = self.query.fetchone()[0]
+        
+        self.query.execute('''select essid, count(*) as nb from wifis group by essid order by nb desc limit 15''')
+        stat['best'] = self.query.fetchall()
       return stat
     
     def getAll(self):
         wifis = {}
-        self.query.execute('''select * from wifis order by latitude, longitude''')
-        wifis["networks"] = self.query.fetchall()
-        
-        self.query.execute('''select avg(latitude), avg(longitude) from wifis group by date order by date desc limit 1''')
-        wifis["center"] = self.query.fetchone()
+        with self.lock:
+          self.query.execute('''select * from wifis order by latitude, longitude''')
+          wifis["networks"] = self.query.fetchall()
+          
+          self.query.execute('''select avg(latitude), avg(longitude) from wifis group by date order by date desc limit 1''')
+          wifis["center"] = self.query.fetchone()
         wifis["stat"] = self.getStat()
         return wifis
     
     def getLast(self):
         wifis = {}
-        self.query.execute('''select * from wifis order by date desc, latitude, longitude limit 10''')
-        wifis["networks"] = self.query.fetchall()
+        with self.lock:
+          self.query.execute('''select * from wifis order by date desc, latitude, longitude limit 10''')
+          wifis["networks"] = self.query.fetchall()
         wifis["stat"] = self.getStat()
         return wifis
     
     def createDatabase(self):
         print "initiallize db"
-        self.query.execute('''CREATE TABLE wifis
-             (bssid text, essid text, encryption bool, signal real, longitude real, latitude real, frequency real, channel int, mode text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-        self.query.execute('''CREATE TABLE logs
-             (date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, name text, value text)''')
+        with self.lock:
+          self.query.execute('''CREATE TABLE wifis
+              (bssid text, essid text, encryption bool, signal real, longitude real, latitude real, frequency real, channel int, mode text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+          self.query.execute('''CREATE TABLE logs
+              (date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, name text, value text)''')
     
     def log(self, name, value):
         print "%s   %s : %s"%(datetime.datetime.now(), name, value)
-        q = 'insert into logs (name, value) values ("%s", "%s")'%(name, value)
-        self.query.execute(q)
+        with self.lock:
+          q = 'insert into logs (name, value) values ("%s", "%s")'%(name, value)
+          self.query.execute(q)
     
     def stop(self):
         self.stopped = True
@@ -427,7 +437,8 @@ class Application:
         if res is None:
             q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode, date) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", CURRENT_TIMESTAMP )'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"])
             try:
-              self.query.execute(q)
+              with self.lock:
+                self.query.execute(q)
               return True
             except:
               print "sqlError: %s"%q
@@ -437,20 +448,30 @@ class Application:
               signal = res[3]
               q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", date=CURRENT_TIMESTAMP where bssid="%s" and essid="%s"'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], wifi["bssid"], wifi["essid"])
               if wifi["signal"] < signal:
-                  self.query.execute(q)
+                  with self.lock:
+                    self.query.execute(q)
                   return True
             except:
               print "sqlError: %s"%q
         return False
     
+    def loadManufacturers(self):
+      try:
+        manuf = open(self.manufacturers_db,'r').read()
+        res = re.findall("(..:..:..)\s(.*)\s#\s(.*)", manuf)
+        if res is not None:
+          for m in res:
+            self.manufacturers[m[0]] = m[1]
+      except:
+        pass
+      return ''
+    
+    
     def getManufacturer(self,_bssid):
       try:
-        manuf = open(self.manufacturers,'r').read()
         # keep only 3 first bytes
         signature = ':'.join(_bssid.split(":")[:3])
-        res = re.findall("%s\s(.*)\s#\s(.*)"%signature, manuf, re.I)
-        if res is not None:
-          return res[0][0]
+        return self.manufacturers[signature.upper()]
       except:
         pass
       return ''
