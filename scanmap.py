@@ -183,7 +183,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             
             self.wfile.write(html)
         elif len(args) == 1 and args[0] == 'status.json':
-            gps_status = self.server.app.session.status == 1
+            gps_status = self.server.app.getGPSData() != (0,0)
             
             status = {'gps':{
                 'fix':(gps_status)
@@ -316,15 +316,22 @@ class Application:
         self.query.execute('''select * from wifis where bssid="%s" and essid="%s"'''%(wifi["bssid"], wifi["essid"]))
         res = self.query.fetchone()
         if res is None:
-            q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", CURRENT_TIMESTAMP )'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"])
-            self.query.execute(q)
-            return True
+            q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode, date) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", CURRENT_TIMESTAMP )'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"])
+            try:
+              self.query.execute(q)
+              return True
+            except:
+              print "sqlError: %s"%q
+              return False
         else:
-            signal = res[3]
-            if wifi["signal"] < signal:
-                q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", date=CURRENT_TIMESTAMP where bssid="%s" and essid="%s"'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], wifi["bssid"], wifi["essid"])
-                self.query.execute(q)
-                return True
+            try:
+              signal = res[3]
+              q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", date=CURRENT_TIMESTAMP where bssid="%s" and essid="%s"'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], wifi["bssid"], wifi["essid"])
+              if wifi["signal"] < signal:
+                  self.query.execute(q)
+                  return True
+            except:
+              print "sqlError: %s"%q
         return False
     
     def scanForWifiNetworks(self):
