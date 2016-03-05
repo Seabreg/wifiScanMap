@@ -385,7 +385,7 @@ class Application:
         self.gpspoller.start()
         self.ignore_bssid = []
         if args.bssid is not None:
-          for b in args.bssid:
+          for b in args.bssid[0]:
             self.ignore_bssid.append(b)
         self.last_fix = False
         self.last_updated = 0
