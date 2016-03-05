@@ -254,9 +254,10 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       
       html = '<html>'
       html += 'Current position: %s, %s <br/>'%(self.server.app.getGPSData()[0],self.server.app.getGPSData()[1])
-      html += 'Current wifi scan: %s'%self.server.app.network_count
+      html += 'Current wifi scan: %s<br/>'%self.server.app.network_count
+      html += 'Last update: %s<br/>'%self.server.app.last_updated
       
-      html += '<ul>'
+      html += '<hr/><ul>'
       for n in networks['networks']:
         name = n[1]
         date = n[9]
@@ -264,7 +265,15 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         if n[2]:
           key = '<img src="locked.png">'
         html += '<li>%s %s / %s</li>'%(key, name, date)
-      html += '</ul></html>'
+        
+      html += '</ul><hr/><h2>Stats</h2>'
+      html += 'Total : %s<br/>'%networks['stat']['total']
+      html += 'Total open : %s</br>'%networks['stat']['open_count']
+      html += '<ul>'
+      for n in networks['stat']['best']:
+        html += '<li>%s : %s</li>'%(n[0],n[1])
+      html += '</ul>'
+      html += '</html>'
       self.wfile.write(html)
     
     def do_GET(self):
@@ -330,6 +339,21 @@ class Application:
             port = 8686
         self.httpd = WebuiHTTPServer(("", port),self, WebuiHTTPHandler)
         self.httpd.start()
+    
+    def getStat(self):
+      stat = {}
+      self.query.execute('''select count(*) from wifis where encryption == 0''')
+      stat['open_count'] = self.query.fetchone()[0]
+      
+      self.query.execute('''select count(*) from wifis''')
+      stat['total'] = self.query.fetchone()[0]
+      
+      self.query.execute('''select essid, count(*) as nb from wifis group by essid order by nb desc limit 15''')
+      stat['best'] = self.query.fetchall()
+      
+      print stat
+      return stat
+    
     def getAll(self):
         wifis = {}
         self.query.execute('''select * from wifis order by latitude, longitude''')
@@ -337,12 +361,14 @@ class Application:
         
         self.query.execute('''select avg(latitude), avg(longitude) from wifis group by date order by date desc limit 1''')
         wifis["center"] = self.query.fetchone()
+        wifis["stat"] = self.getStat()
         return wifis
     
     def getLast(self):
         wifis = {}
         self.query.execute('''select * from wifis order by date desc, latitude, longitude limit 10''')
         wifis["networks"] = self.query.fetchall()
+        wifis["stat"] = self.getStat()
         return wifis
     
     def createDatabase(self):
