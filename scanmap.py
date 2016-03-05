@@ -24,6 +24,7 @@ def parse_args():
     parser.add_argument("-s", "--sleep", help="wifi interface")  
     parser.add_argument("-d", "--database", help="wifi database")
     parser.add_argument('-w', '--www', help='www port')
+    parser.add_argument('-b', '--bssid', help='ignore bssid', action='append', nargs='*')
     return parser.parse_args()
 
 
@@ -299,6 +300,10 @@ class Application:
         self.session = gps(mode=WATCH_ENABLE)
         self.gpspoller = GpsPoller(self.session)
         self.gpspoller.start()
+        self.ignore_bssid = []
+        if args.bssid is not None:
+          for b in args.bssid:
+            self.ignore_bssid.append(b)
         self.last_fix = False
         self.last_updated = 0
         self.network_count = 0
@@ -306,6 +311,7 @@ class Application:
             self.interface = self.args.interface
         else:
             self.interface = self.getWirelessInterfacesList()[0]
+        self.ignore_bssid.append(self.getMacFromIface(self.interface))
 
         if(self.args.database is not None):
             db = self.args.database
@@ -464,7 +470,8 @@ class Application:
                 n["frequency"] = float(networks["frequency"][i])
                 n["signal"] = float(networks["signal"][i])
                 n["encryption"] = networks["encryption"][i] == "on"
-                wifis.append(n)
+                if n["bssid"] not in self.ignore_bssid:
+                  wifis.append(n)
         return wifis
         
             
@@ -487,6 +494,12 @@ class Application:
                 if(line.find("IEEE 802.11")!=-1):
                         networkInterfaces.append(line.split()[0])
         return networkInterfaces
+      
+    def getMacFromIface(self, _iface):
+      path = "/sys/class/net/%s/address"%_iface
+      data = open(path,'r').read()
+      data = data[0:-1] # remove EOL
+      return data
 
 def main(args):
     app = Application(args)
