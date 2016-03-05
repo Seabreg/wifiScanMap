@@ -130,7 +130,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
                 open_icon='-open'
               else:
                 key = '<img src=\\"locked.png\\">'
-              names = "%s<li>%s %s</li>"%(names,key, i[1])
+              manufacturer = self.server.app.getManufacturer(i[0])
+              names = "%s<li>%s %s %s</li>"%(names,key, i[1], manufacturer)
             name = "%s</ul>"%names
             icon = "marker%s.png"%open_icon
             if count >= 2:
@@ -264,7 +265,10 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         key = ''
         if n[2]:
           key = '<img src="locked.png">'
-        html += '<li>%s %s / %s</li>'%(key, name, date)
+        manufacturer = self.server.app.getManufacturer(n[0])
+        if manufacturer != '':
+          manufacturer = '%s<br/>'%manufacturer
+        html += '<li>%s <b>%s</b> <br/>%s%s</li>'%(key, name, manufacturer, date)
         
       html += '</ul><hr/><h2>Stats</h2>'
       html += 'Total : %s<br/>'%networks['stat']['total']
@@ -304,6 +308,7 @@ class WebuiHTTPServer(ThreadingMixIn, HTTPServer, Thread):
 class Application:
     def __init__(self, args):
         self.args = args
+        self.manufacturers = '/usr/share/wireshark/manuf'
         self.stopped = False
         self.networks = []
         self.session = gps(mode=WATCH_ENABLE)
@@ -350,8 +355,6 @@ class Application:
       
       self.query.execute('''select essid, count(*) as nb from wifis group by essid order by nb desc limit 15''')
       stat['best'] = self.query.fetchall()
-      
-      print stat
       return stat
     
     def getAll(self):
@@ -439,6 +442,18 @@ class Application:
             except:
               print "sqlError: %s"%q
         return False
+    
+    def getManufacturer(self,_bssid):
+      try:
+        manuf = open(self.manufacturers,'r').read()
+        # keep only 3 first bytes
+        signature = ':'.join(_bssid.split(":")[:3])
+        res = re.findall("%s\s(.*)\s#\s(.*)"%signature, manuf, re.I)
+        if res is not None:
+          return res[0][0]
+      except:
+        pass
+      return ''
     
     def scanForWifiNetworks(self):
         networkInterface = self.interface
