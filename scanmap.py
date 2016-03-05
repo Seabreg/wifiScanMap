@@ -262,7 +262,7 @@ class Application:
         self.query.execute('''select * from wifis''')
         wifis["networks"] = self.query.fetchall()
         
-        self.query.execute('''select avg(latitude), avg(longitude) from wifis group by date limit 1''')
+        self.query.execute('''select avg(latitude), avg(longitude) from wifis group by date order by date desc limit 1''')
         wifis["center"] = self.query.fetchone()
         return wifis
     
