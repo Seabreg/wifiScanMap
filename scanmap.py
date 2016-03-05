@@ -57,196 +57,228 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
 
         return path,params,args
     
+    def _get_index(self):
+      self.send_response(200)
+      self.send_header('Content-type','text/html')
+      self.end_headers()
+      networks = self.server.app.getAll()
+      html = '''
+      <script type="text/javascript" src="http://www.openlayers.org/api/OpenLayers.js"></script>
+      <script type="text/javascript" src="http://www.openstreetmap.org/openlayers/OpenStreetMap.js"></script>
+      <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
+      <script>
+      var current_position;
+      var markers;
+          function update(){
+          $.getJSON('/status.json').done( function(data){
+              if(data['gps']['fix'])
+              {
+                  var lonLat = new OpenLayers.LonLat( data['gps']['position']['longitude'] ,data['gps']['position']['latitude']);
+                  var newPx = map.getLayerPxFromLonLat(lonLat);
+                  current_position.moveTo(newPx);
+              }
+              
+          }) .fail(function(d, textStatus, error) {
+      console.error("getJSON failed, status: " + textStatus + ", error: "+error)
+});
+          setTimeout(update,1000);
+          }
+      
+          var map;
+      
+          var fromProjection = new OpenLayers.Projection("EPSG:4326");   // Transform from WGS 1984
+          var toProjection   = new OpenLayers.Projection("EPSG:900913"); // to Spherical Mercator Projection
+  
+          function init(){
+              map = new OpenLayers.Map('map',
+                      { maxExtent: new OpenLayers.Bounds(-20037508.34,-20037508.34,20037508.34,20037508.34),
+                      numZoomLevels: 18,
+                      maxResolution: 156543.0399,
+                      units: 'm'
+                      });
+              map.addLayer(new OpenLayers.Layer.OSM());
+              
+              markers = new OpenLayers.Layer.Markers( "Markers" );
+              map.addLayer(markers);
+              
+              var lonLat = new OpenLayers.LonLat('''+str(networks['center'][1])+", "+str(networks['center'][0])+''').transform( fromProjection, toProjection);
+              if (!map.getCenter()) map.setCenter (lonLat, 16);
+              
+              
+              '''
+      lastLat = None
+      lastLon = None
+      count = 0
+      networks_same_position = []
+      for n in networks["networks"]:
+          lat = n[5]
+          lon = n[4]
+          name = n[1]
+          if lastLat == None:
+            lastLat = lat
+            lastLon = lon
+          if lat == lastLat and lon == lastLon:
+            count += 1
+            networks_same_position.append(n)
+          else:
+            names = '<ul>'
+            open_icon=''
+            for i in networks_same_position:
+              key = ''
+              if not i[2]:
+                open_icon='-open'
+              else:
+                key = '<img src=\\"locked.png\\">'
+              names = "%s<li>%s %s</li>"%(names,key, i[1])
+            name = "%s</ul>"%names
+            icon = "marker%s.png"%open_icon
+            if count >= 2:
+              icon ="marker-few%s.png"%open_icon
+            if count >= 4:
+              icon ="marker-many%s.png"%open_icon
+            html+= '''
+          setMarker(markers, '''+str(lat)+''', '''+str(lon)+''', "'''+names+'''", "'''+icon+'''");'''
+            networks_same_position = []
+            networks_same_position.append(n)
+            count = 1
+            
+          lastLat = lat
+          lastLon = lon
+
+      html +='''
+              current_position = new OpenLayers.Marker(lonLat);
+              feature = new OpenLayers.Feature.Vector(
+                  new OpenLayers.Geometry.Point(0,0),
+                  {}, {
+                  fillColor : 'red',
+                  fillOpacity : 0,                    
+                  strokeColor : "#ffffff",
+                  strokeOpacity : 1,
+                  strokeWidth : 1,
+                  pointRadius : 8
+                  }
+              );
+          
+              feature.style = {
+              graphicWidth:48,
+              rotation:0
+              };
+              current_position.feature = feature;
+              markers.addMarker(current_position);
+
+      
+              setTimeout(update,1000);
+          }
+          
+          function setMarker(markers, lat, lon, contentHTML, icon){
+              var lonLatMarker = new OpenLayers.LonLat(lon, lat).transform( fromProjection, toProjection);
+              var feature = new OpenLayers.Feature(markers, lonLatMarker);
+              feature.closeBox = true;
+              feature.popupClass = OpenLayers.Class(OpenLayers.Popup.FramedCloud, {minSize: new OpenLayers.Size(300, 180) } );
+              feature.data.popupContentHTML = contentHTML;
+              feature.data.overflow = "auto";
+              
+              if(icon != "")
+              {
+                  var icon = new OpenLayers.Icon(icon,new OpenLayers.Size(20, 50), new OpenLayers.Pixel(-10,-50));
+                  var marker = new OpenLayers.Marker(lonLatMarker, icon);
+                  marker.feature = feature;
+              }
+
+              if(contentHTML != "")
+              {
+                  var markerClick = function(evt) {
+                          if (this.popup == null) {
+                                  this.popup = this.createPopup(this.closeBox);
+                                  map.addPopup(this.popup);
+                                  this.popup.show();
+                          } else {
+                                  this.popup.toggle();
+                          }
+                          OpenLayers.Event.stop(evt);
+                  };
+                  marker.events.register("mousedown", feature, markerClick);
+              }   
+
+              markers.addMarker(marker);
+      }
+      </script>
+      '''
+      
+      html += '''<body onload="init()">
+      <div id="map"></map>
+      </body>
+      '''
+      
+      self.wfile.write(html)
+    
+    def _get_status(self):
+      gps_status = self.server.app.getGPSData() != (0,0)
+      
+      status = {'gps':{
+          'fix':(gps_status)
+          },
+      'wifi': {'updated':self.server.app.last_updated}
+      }
+      
+      if gps_status:
+          status['gps']['position'] = {'latitude':self.server.app.session.fix.latitude , 'longitude':self.server.app.session.fix.longitude}
+      
+      self.send_response(200)
+      self.end_headers()
+      # push data
+      self.wfile.write(json.dumps(status))
+    
+    def _get_file(self, path):
+      _path = os.path.join(self.server.www_directory,path)
+      if os.path.exists(_path):
+          try:
+          # open asked file
+              data = open(_path,'r').read()
+
+              # send HTTP OK
+              self.send_response(200)
+              self.end_headers()
+
+              # push data
+              self.wfile.write(data)
+          except IOError as e:
+                self.send_500(str(e))
+    
+    def _get_offline(self):
+      self.send_response(200)
+      self.send_header('Content-type','text/html')
+      self.end_headers()
+      networks = self.server.app.getLast()
+      
+      html = '<html>'
+      html += 'Current position: %s, %s <br/>'%(self.server.app.getGPSData()[0],self.server.app.getGPSData()[1])
+      html += 'Current wifi scan: %s'%self.server.app.network_count
+      
+      html += '<ul>'
+      for n in networks['networks']:
+        name = n[1]
+        date = n[9]
+        key = ''
+        if n[2]:
+          key = '<img src="locked.png">'
+        html += '<li>%s %s / %s</li>'%(key, name, date)
+      html += '</ul></html>'
+      self.wfile.write(html)
+    
     def do_GET(self):
         path,params,args = self._parse_url()
         if ('..' in args) or ('.' in args):
             self.send_400()
             return
         if len(args) == 1 and args[0] == '':
-            self.send_response(200)
-            self.send_header('Content-type','text/html')
-            self.end_headers()
-            networks = self.server.app.getAll()
-            html = '''
-            <script type="text/javascript" src="http://www.openlayers.org/api/OpenLayers.js"></script>
-            <script type="text/javascript" src="http://www.openstreetmap.org/openlayers/OpenStreetMap.js"></script>
-            <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
-            <script>
-            var current_position;
-            var markers;
-                function update(){
-                $.getJSON('/status.json').done( function(data){
-                    if(data['gps']['fix'])
-                    {
-                        var lonLat = new OpenLayers.LonLat( data['gps']['position']['longitude'] ,data['gps']['position']['latitude']);
-                        var newPx = map.getLayerPxFromLonLat(lonLat);
-                        current_position.moveTo(newPx);
-                    }
-                    
-                }) .fail(function(d, textStatus, error) {
-            console.error("getJSON failed, status: " + textStatus + ", error: "+error)
-  });
-                setTimeout(update,1000);
-                }
-            
-                var map;
-            
-                var fromProjection = new OpenLayers.Projection("EPSG:4326");   // Transform from WGS 1984
-                var toProjection   = new OpenLayers.Projection("EPSG:900913"); // to Spherical Mercator Projection
-        
-                function init(){
-                    map = new OpenLayers.Map('map',
-                            { maxExtent: new OpenLayers.Bounds(-20037508.34,-20037508.34,20037508.34,20037508.34),
-                            numZoomLevels: 18,
-                            maxResolution: 156543.0399,
-                            units: 'm'
-                            });
-                    map.addLayer(new OpenLayers.Layer.OSM());
-                    
-                    markers = new OpenLayers.Layer.Markers( "Markers" );
-                    map.addLayer(markers);
-                    
-                    var lonLat = new OpenLayers.LonLat('''+str(networks['center'][1])+", "+str(networks['center'][0])+''').transform( fromProjection, toProjection);
-                    if (!map.getCenter()) map.setCenter (lonLat, 16);
-                    
-                    
-                    '''
-            lastLat = None
-            lastLon = None
-            count = 0
-            networks_same_position = []
-            for n in networks["networks"]:
-                lat = n[5]
-                lon = n[4]
-                name = n[1]
-                if lastLat == None:
-                  lastLat = lat
-                  lastLon = lon
-                if lat == lastLat and lon == lastLon:
-                  count += 1
-                  networks_same_position.append(n)
-                else:
-                  names = '<ul>'
-                  open_icon=''
-                  for i in networks_same_position:
-                    key = ''
-                    if not i[2]:
-                      open_icon='-open'
-                    else:
-                      key = '<img src=\\"locked.png\\">'
-                    names = "%s<li>%s %s</li>"%(names,key, i[1])
-                  name = "%s</ul>"%names
-                  icon = "marker%s.png"%open_icon
-                  if count >= 2:
-                    icon ="marker-few%s.png"%open_icon
-                  if count >= 4:
-                    icon ="marker-many%s.png"%open_icon
-                  html+= '''
-                setMarker(markers, '''+str(lat)+''', '''+str(lon)+''', "'''+names+'''", "'''+icon+'''");'''
-                  networks_same_position = []
-                  networks_same_position.append(n)
-                  count = 1
-                  
-                lastLat = lat
-                lastLon = lon
-
-            html +='''
-                    current_position = new OpenLayers.Marker(lonLat);
-                    feature = new OpenLayers.Feature.Vector(
-                        new OpenLayers.Geometry.Point(0,0),
-                        {}, {
-                        fillColor : 'red',
-                        fillOpacity : 0,                    
-                        strokeColor : "#ffffff",
-                        strokeOpacity : 1,
-                        strokeWidth : 1,
-                        pointRadius : 8
-                        }
-                    );
-                
-                    feature.style = {
-                    graphicWidth:48,
-                    rotation:0
-                    };
-                    current_position.feature = feature;
-                    markers.addMarker(current_position);
-
-            
-                    setTimeout(update,1000);
-                }
-                
-                function setMarker(markers, lat, lon, contentHTML, icon){
-                    var lonLatMarker = new OpenLayers.LonLat(lon, lat).transform( fromProjection, toProjection);
-                    var feature = new OpenLayers.Feature(markers, lonLatMarker);
-                    feature.closeBox = true;
-                    feature.popupClass = OpenLayers.Class(OpenLayers.Popup.FramedCloud, {minSize: new OpenLayers.Size(300, 180) } );
-                    feature.data.popupContentHTML = contentHTML;
-                    feature.data.overflow = "auto";
-                    
-                    if(icon != "")
-                    {
-                        var icon = new OpenLayers.Icon(icon,new OpenLayers.Size(20, 50), new OpenLayers.Pixel(-10,-50));
-                        var marker = new OpenLayers.Marker(lonLatMarker, icon);
-                        marker.feature = feature;
-                    }
-
-                    if(contentHTML != "")
-                    {
-                        var markerClick = function(evt) {
-                                if (this.popup == null) {
-                                        this.popup = this.createPopup(this.closeBox);
-                                        map.addPopup(this.popup);
-                                        this.popup.show();
-                                } else {
-                                        this.popup.toggle();
-                                }
-                                OpenLayers.Event.stop(evt);
-                        };
-                        marker.events.register("mousedown", feature, markerClick);
-                    }   
-
-                    markers.addMarker(marker);
-            }
-            </script>
-            '''
-            
-            html += '''<body onload="init()">
-            <div id="map"></map>
-            </body>
-            '''
-            
-            self.wfile.write(html)
+            return self._get_index()
         elif len(args) == 1 and args[0] == 'status.json':
-            gps_status = self.server.app.getGPSData() != (0,0)
-            
-            status = {'gps':{
-                'fix':(gps_status)
-                },
-            'wifi': {'updated':self.server.app.last_updated}
-            }
-            
-            if gps_status:
-                status['gps']['position'] = {'latitude':self.server.app.session.fix.latitude , 'longitude':self.server.app.session.fix.longitude}
-            
-            self.send_response(200)
-            self.end_headers()
-            # push data
-            self.wfile.write(json.dumps(status))
+            return self._get_status()
+        elif len(args) == 1 and args[0] == 'offline':
+            return self._get_offline()
         else:
-            _path = os.path.join(self.server.www_directory,path)
-            if os.path.exists(_path):
-                try:
-                # open asked file
-                    data = open(_path,'r').read()
-
-                    # send HTTP OK
-                    self.send_response(200)
-                    self.end_headers()
-
-                    # push data
-                    self.wfile.write(data)
-                except IOError as e:
-                    self.send_500(str(e))
+            return self._get_file(path)
       
 class WebuiHTTPServer(ThreadingMixIn, HTTPServer, Thread):
   def __init__(self, server_address, app, RequestHandlerClass, bind_and_activate=True):
@@ -269,6 +301,7 @@ class Application:
         self.gpspoller.start()
         self.last_fix = False
         self.last_updated = 0
+        self.network_count = 0
         if self.args.interface is not None:
             self.interface = self.args.interface
         else:
@@ -293,11 +326,17 @@ class Application:
         self.httpd.start()
     def getAll(self):
         wifis = {}
-        self.query.execute('''select * from wifis''')
+        self.query.execute('''select * from wifis order by latitude, longitude''')
         wifis["networks"] = self.query.fetchall()
         
         self.query.execute('''select avg(latitude), avg(longitude) from wifis group by date order by date desc limit 1''')
         wifis["center"] = self.query.fetchone()
+        return wifis
+    
+    def getLast(self):
+        wifis = {}
+        self.query.execute('''select * from wifis order by date desc, latitude, longitude limit 10''')
+        wifis["networks"] = self.query.fetchall()
         return wifis
     
     def createDatabase(self):
@@ -326,7 +365,8 @@ class Application:
             if updated != 0:
                 self.log("updated", updated)
             self.last_updated = updated
-            if len(wifis) == 0:
+            self.network_count = len(wifis)
+            if self.network_count == 0:
                 self.log("wifi", 'No results')
             self.db.commit()
             if self.args.sleep is not None:
