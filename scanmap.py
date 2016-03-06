@@ -324,12 +324,7 @@ class Application:
         self.last_fix = False
         self.last_updated = 0
         self.network_count = 0
-        if self.args.interface is not None:
-            self.interface = self.args.interface
-        else:
-            self.interface = self.getWirelessInterfacesList()[0]
-        self.ignore_bssid.append(self.getMacFromIface(self.interface))
-
+        self.interface = ''
         if(self.args.database is not None):
             db = self.args.database
         else:
@@ -340,6 +335,15 @@ class Application:
             self.query.execute('''select * from wifis''')
         except:
             self.createDatabase()
+            
+        try:
+          if self.args.interface is not None:
+              self.interface = self.args.interface
+          else:
+              self.interface = self.getWirelessInterfacesList()[0]
+          self.ignore_bssid.append(self.getMacFromIface(self.interface))
+        except:
+          self.log("App", "No wifi interface")
             
         if self.args.www is not None:
             port = int(self.args.www)
