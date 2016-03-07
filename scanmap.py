@@ -11,11 +11,13 @@ from os import path
 import commands
 import argparse
 import re
+import json
 import sqlite3
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 from threading import Thread
 import json
+import urllib2
 
 import datetime
 
@@ -43,7 +45,28 @@ class GpsPoller(threading.Thread):
   def stop(self):
       self.running = False
     
-    
+   
+class Synchronizer(threading.Thread):
+  def __init__(self, application):
+    self.application = application
+    threading.Thread.__init__(self)
+    self.running = True #setting the thread running to true
+
+  def run(self):
+    time.sleep(5)
+    while self.running:
+      n = self.application.getAll()
+      data = json.dumps(n)
+      req = urllib2.Request('http://test:8686/upload.json')
+      req.add_header('Content-Type', 'application/json')
+
+      response = urllib2.urlopen(req, json.dumps(data))
+      print "synchro"
+      time.sleep(60)
+
+  def stop(self):
+      self.running = False
+      
 class WebuiHTTPHandler(BaseHTTPRequestHandler):
         
     def _parse_url(self):
@@ -281,6 +304,33 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       html += '</html>'
       self.wfile.write(html)
     
+    def do_POST(self):
+        path,params,args = self._parse_url()
+        if ('..' in args) or ('.' in args):
+            self.send_400()
+            return
+        if len(args) == 1 and args[0] == 'upload.json':
+          self.send_response(200)
+          self.send_header('Content-type','text/html')
+          self.end_headers()
+          length = int(self.headers['Content-Length'])
+          post = self.rfile.read(length)
+          data = json.loads(post.decode('string-escape').strip('"'))
+          for n in data['networks']:
+            network = {}
+            network['bssid'] = n[0]
+            network['essid'] = n[1]
+            network['encryption'] = n[2]
+            network['signal'] = n[3]
+            network['longitude'] = n[4]
+            network['latitude'] = n[5]
+            network['frequency'] = n[6]
+            network['channel'] = n[7]
+            network['mode'] = n[8]
+            network['date'] = n[9]
+            self.server.app.update(network)
+          self.wfile.write(json.dumps('ok'))
+    
     def do_GET(self):
         path,params,args = self._parse_url()
         if ('..' in args) or ('.' in args):
@@ -335,7 +385,10 @@ class Application:
             self.query.execute('''select * from wifis''')
         except:
             self.createDatabase()
-            
+        
+        self.synchronizer = Synchronizer(self)
+        self.synchronizer.start()
+        
         try:
           if self.args.interface is not None:
               self.interface = self.args.interface
