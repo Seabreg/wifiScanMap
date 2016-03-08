@@ -27,6 +27,8 @@ def parse_args():
     parser.add_argument("-s", "--sleep", help="wifi interface")  
     parser.add_argument("-d", "--database", help="wifi database")
     parser.add_argument('-w', '--www', help='www port')
+    parser.add_argument('-u', '--synchro', help='synchro uri ie http://test.com:8686')
+    parser.add_argument('-e', '--enable', action='store_true', help='enable db synchro through json')
     parser.add_argument('-b', '--bssid', help='ignore bssid', action='append', nargs='*')
     return parser.parse_args()
 
@@ -47,21 +49,30 @@ class GpsPoller(threading.Thread):
     
    
 class Synchronizer(threading.Thread):
-  def __init__(self, application):
+  def __init__(self, application, uri):
     self.application = application
     threading.Thread.__init__(self)
     self.running = True #setting the thread running to true
+    self.base = uri
 
   def run(self):
     time.sleep(5)
     while self.running:
-      n = self.application.getAll()
-      data = json.dumps(n)
-      req = urllib2.Request('http://test:8686/upload.json')
-      req.add_header('Content-Type', 'application/json')
-
-      response = urllib2.urlopen(req, json.dumps(data))
-      print "synchro"
+      
+      try:
+        raw = urllib2.urlopen("%s/status.json"%self.base)
+        date = json.loads(raw.read())["sync"][0]
+        date = date.split('.')[0]
+        
+        n = self.application.getAll(date)
+        data = json.dumps(n)
+        
+        req = urllib2.Request('%s/upload.json'%self.base)
+        req.add_header('Content-Type', 'application/json')
+        response = urllib2.urlopen(req, json.dumps(data))
+        print "sync"
+      except urllib2.HTTPError:
+        print "Sync forbidden"
       time.sleep(60)
 
   def stop(self):
@@ -250,6 +261,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       if gps_status:
           status['gps']['position'] = {'latitude':self.server.app.session.fix.latitude , 'longitude':self.server.app.session.fix.longitude}
       
+      status['sync'] = self.server.app.getLastUpdate()
+      
       self.send_response(200)
       self.end_headers()
       # push data
@@ -310,6 +323,9 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             self.send_400()
             return
         if len(args) == 1 and args[0] == 'upload.json':
+          if(not self.server.app.args.enable):
+            self.send_response(403)
+            return
           self.send_response(200)
           self.send_header('Content-type','text/html')
           self.end_headers()
@@ -386,8 +402,9 @@ class Application:
         except:
             self.createDatabase()
         
-        self.synchronizer = Synchronizer(self)
-        self.synchronizer.start()
+        if args.synchro is not None:
+          self.synchronizer = Synchronizer(self, args.synchro)
+          self.synchronizer.start()
         
         try:
           if self.args.interface is not None:
@@ -420,13 +437,22 @@ class Application:
         stat['best'] = self.query.fetchall()
       return stat
     
-    def getAll(self):
-        wifis = {}
+    def getLastUpdate(self):
         with self.lock:
-          self.query.execute('''select * from wifis order by latitude, longitude''')
+          self.query.execute('''select date from wifis order by date desc limit 1''')
+          return self.query.fetchone()
+    
+    def getAll(self, date = None):
+        wifis = {}
+        date_where = ''
+        if date is not None:
+          date_where = 'where date > "%s"'%date
+        with self.lock:
+          q = 'select * from wifis %s order by latitude, longitude'%date_where
+          self.query.execute(q)
           wifis["networks"] = self.query.fetchall()
           
-          self.query.execute('''select avg(latitude), avg(longitude) from wifis group by date order by date desc limit 1''')
+          self.query.execute('select avg(latitude), avg(longitude) from wifis %s group by date order by date desc limit 1'%date_where)
           wifis["center"] = self.query.fetchone()
         wifis["stat"] = self.getStat()
         return wifis
