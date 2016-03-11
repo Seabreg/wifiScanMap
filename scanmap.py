@@ -384,24 +384,38 @@ class Application:
         self.gpspoller = GpsPoller(self.session)
         self.gpspoller.start()
         self.ignore_bssid = []
-        if args.bssid is not None:
-          for b in args.bssid[0]:
-            self.ignore_bssid.append(b)
         self.last_fix = False
         self.last_updated = 0
         self.network_count = 0
         self.interface = ''
+        
         if(self.args.database is not None):
             db = self.args.database
         else:
             db = "./wifimap.db"
         self.db = sqlite3.connect(db, check_same_thread=False)
         self.query = self.db.cursor()
+        
         try:
             self.query.execute('''select * from wifis''')
         except:
             self.createDatabase()
         
+        for b in self.getConfig('bssid').split(','):
+          self.ignore_bssid.append(b)
+        
+        if args.bssid is not None:
+          for b in args.bssid:
+            self.ignore_bssid.append(b)
+        
+        if not args.enable:
+          args.enable = self.getConfig('enable') == 'true'
+        
+        if args.synchro is None:
+          if self.getConfig('synchro') != '':
+            args.synchro = self.getConfig('synchro')
+        
+        print args.synchro
         if args.synchro is not None:
           self.synchronizer = Synchronizer(self, args.synchro)
           self.synchronizer.start()
@@ -415,14 +429,28 @@ class Application:
         except:
           self.log("App", "No wifi interface")
             
+        print self.getConfig('www')
         if self.args.www is not None:
             port = int(self.args.www)
         else:
+          if self.getConfig('www') != '':
+            port = int(self.getConfig('www'))
+          else:
             port = 8686
             
         self.loadManufacturers()
         self.httpd = WebuiHTTPServer(("", port),self, WebuiHTTPHandler)
         self.httpd.start()
+    
+    def getConfig(self, _key):
+      try:
+        with self.lock:
+          q = '''select value from config where key == "%s"'''%_key
+          self.query.execute(q)
+          res = self.query.fetchone()
+          return res[0]
+      except:
+        return ''
     
     def getStat(self):
       stat = {}
@@ -472,6 +500,8 @@ class Application:
               (bssid text, essid text, encryption bool, signal real, longitude real, latitude real, frequency real, channel int, mode text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
           self.query.execute('''CREATE TABLE logs
               (date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, name text, value text)''')
+          self.query.execute('''CREATE TABLE config
+              (key text, value text)''')
     
     def log(self, name, value):
         print "%s   %s : %s"%(datetime.datetime.now(), name, value)
