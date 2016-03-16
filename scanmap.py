@@ -71,8 +71,8 @@ class Synchronizer(threading.Thread):
         req.add_header('Content-Type', 'application/json')
         response = urllib2.urlopen(req, json.dumps(data))
         print "sync"
-      except urllib2.HTTPError:
-        print "Sync forbidden"
+      except:
+        print "Sync unavailable"
       time.sleep(60)
 
   def stop(self):
