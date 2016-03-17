@@ -316,6 +316,24 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       html += '</ul>'
       html += '</html>'
       self.wfile.write(html)
+      
+    def _get_kml(self):
+      try:
+        self.send_response(200)
+        self.send_header('Content-type','text/html')
+        self.end_headers()
+        import simplekml
+        kml = simplekml.Kml()
+        networks = self.server.app.getAll()
+        
+        for n in networks["networks"]:
+          lat = n[5]
+          lon = n[4]
+          name = n[1]
+          kml.newpoint(name=name, coords=[(lon,lat)])
+        self.wfile.write(kml.kml())
+      except:
+        self.send_response(500)
     
     def do_POST(self):
         path,params,args = self._parse_url()
@@ -358,6 +376,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             return self._get_status()
         elif len(args) == 1 and args[0] == 'offline':
             return self._get_offline()
+        elif len(args) == 1 and args[0] == 'kml':
+            return self._get_kml()
         else:
             return self._get_file(path)
       
