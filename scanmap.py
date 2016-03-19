@@ -21,6 +21,14 @@ import urllib2
 
 import datetime
 
+USE_SCAPY=False
+
+if(USE_SCAPY):
+  from scapy.all import *
+  from scapy_ex import *
+else:
+  import csv
+  
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--interface", help="wifi interface")    
@@ -29,6 +37,7 @@ def parse_args():
     parser.add_argument('-w', '--www', help='www port')
     parser.add_argument('-u', '--synchro', help='synchro uri ie http://test.com:8686')
     parser.add_argument('-e', '--enable', action='store_true', help='enable db synchro through json')
+    parser.add_argument('-m', '--monitor', action='store_true', help='use monitor mode instead of iwlist')
     parser.add_argument('-b', '--bssid', help='ignore bssid', action='append', nargs='*')
     return parser.parse_args()
 
@@ -408,7 +417,7 @@ class Application:
         self.last_updated = 0
         self.network_count = 0
         self.interface = ''
-        
+
         if(self.args.database is not None):
             db = self.args.database
         else:
@@ -435,7 +444,6 @@ class Application:
           if self.getConfig('synchro') != '':
             args.synchro = self.getConfig('synchro')
         
-        print args.synchro
         if args.synchro is not None:
           self.synchronizer = Synchronizer(self, args.synchro)
           self.synchronizer.start()
@@ -448,7 +456,14 @@ class Application:
           self.ignore_bssid.append(self.getMacFromIface(self.interface))
         except:
           self.log("App", "No wifi interface")
-            
+        
+        if self.args.monitor:
+          cmd = ['airmon-ng', 'start' ,self.interface]
+          p = subprocess.Popen(cmd)
+          p.wait()
+          self.interface = 'mon0'
+                
+        
         print self.getConfig('www')
         if self.args.www is not None:
             port = int(self.args.www)
@@ -471,6 +486,13 @@ class Application:
           return res[0]
       except:
         return ''
+    
+    def packet_handler(self, pkt):
+      if pkt.haslayer(Dot11):
+        if pkt.type == 0 and pkt.subtype == 8:
+          rssi =0
+          print "==> %s %s %s"%(rssi, pkt.addr2, pkt.info)
+          pkt.show()
     
     def getStat(self):
       stat = {}
@@ -533,26 +555,81 @@ class Application:
         self.stopped = True
         self.gpspoller.stop()
     
+    def airodump(self):
+      FNULL = open(os.devnull, 'w')
+      prefix= 'wifi-dump'
+      os.system("rm wifi-dump*")
+      cmd = ['airodump-ng', '-w', prefix,  '--berlin', '1',self.interface]
+      process = subprocess.Popen(cmd, stderr=FNULL)
+      time.sleep(1)
+      #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
+      lon, lat = self.getGPSData()
+      while not self.stopped:
+        wifis = []
+        f = open("%s-01.csv"%prefix)
+        for line in f:
+          fields = line.split(',')
+          if lat !=0 and lon != 0:
+            if len(fields) >= 13:
+              if(fields[0] != 'BSSID'):
+                n = {}
+                n["latitude"] = lat
+                n["longitude"] = lon
+                n["bssid"] = fields[0]
+                n["essid"] = fields[13]
+                n["mode"] = 'Master'
+                n["channel"] = fields[3]
+                n["frequency"] = -1
+                n["signal"] = float(fields[8])
+                n["encryption"] = fields[7] != "OPN"
+                if n["bssid"] not in self.ignore_bssid:
+                  wifis.append(n)
+        f.close()
+        updated = 0
+        for w in wifis:
+          if self.update(w):
+              updated += 1
+          if updated != 0:
+              self.log("updated", updated)
+          self.last_updated = updated
+          self.network_count = len(wifis)
+          if self.network_count == 0:
+              self.log("wifi", 'No results')
+          self.db.commit()
+        
+        if self.args.sleep is not None:
+            sleep = int(self.args.sleep)
+        else:
+            sleep = 1
+        
+        time.sleep(sleep)
+    
     def run(self):
-        while not self.stopped:
-            wifis = self.scanForWifiNetworks()
-            updated = 0
-            for w in wifis:
-                if self.update(w):
-                    updated += 1
-            if updated != 0:
-                self.log("updated", updated)
-            self.last_updated = updated
-            self.network_count = len(wifis)
-            if self.network_count == 0:
-                self.log("wifi", 'No results')
-            self.db.commit()
-            if self.args.sleep is not None:
-                sleep = int(self.args.sleep)
-            else:
-                sleep = 1
-            
-            time.sleep(sleep)
+        if self.args.monitor:
+          if USE_SCAPY:
+            sniff(iface=self.interface, prn = self.packet_handler)
+          else:
+            self.airodump()
+        else:
+          while not self.stopped:
+              wifis = self.scanForWifiNetworks()
+              updated = 0
+              for w in wifis:
+                  if self.update(w):
+                      updated += 1
+              if updated != 0:
+                  self.log("updated", updated)
+              self.last_updated = updated
+              self.network_count = len(wifis)
+              if self.network_count == 0:
+                  self.log("wifi", 'No results')
+              self.db.commit()
+              if self.args.sleep is not None:
+                  sleep = int(self.args.sleep)
+              else:
+                  sleep = 1
+              
+              time.sleep(sleep)
     
     def update(self, wifi):
         if math.isnan(wifi["longitude"]):
