@@ -47,11 +47,21 @@ class GpsPoller(threading.Thread):
     threading.Thread.__init__(self)
     self.gpsd = gpsd
     self.current_value = None
+    self.date = False
     self.running = True #setting the thread running to true
 
   def run(self):
     while self.running:
       self.gpsd.next() #this will continue to loop and grab EACH set of gpsd info to clear the buffer
+      TIMEZ = 0 
+      if self.gpsd.utc != None and self.gpsd.utc != '' and not self.date:
+        self.date = True
+        tzhour = int(self.gpsd.utc[11:13])+TIMEZ
+        if (tzhour>23):
+          tzhour = (int(self.gpsd.utc[11:13])+TIMEZ)-24
+        gpstime = self.gpsd.utc[0:4] + self.gpsd.utc[5:7] + self.gpsd.utc[8:10] + ' ' + str(tzhour) + self.gpsd.utc[13:19]
+        print 'Setting system time to GPS time...'
+        os.system('sudo date --set="%s"' % gpstime)
 
   def stop(self):
       self.running = False
