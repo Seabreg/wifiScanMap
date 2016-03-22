@@ -269,7 +269,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.wfile.write(html)
     
     def _get_status(self):
-      gps_status = self.server.app.getGPSData() != (0,0)
+      gps_status = self.server.app.has_fix()
       
       status = {'gps':{
           'fix':(gps_status)
@@ -310,7 +310,11 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       networks = self.server.app.getLast()
       
       html = '<html>'
-      html += 'Current position: %s, %s <br/>'%(self.server.app.getGPSData()[0],self.server.app.getGPSData()[1])
+      if self.server.app.has_fix():
+        lat, lon = self.server.app.getGPSData()
+        html += 'Current position: <a href="http://www.openstreetmap.org/search?query=%s%2C%s#map=18/45.00000/0.00000" > %s, %s</a> <br/>'%(lat, lon, lat, lon)
+      else:
+        html += 'Current position: Unknown<br/>'
       html += 'Current wifi scan: %s<br/>'%self.server.app.network_count
       html += 'Last update: %s<br/>'%self.server.app.last_updated
       
@@ -565,6 +569,9 @@ class Application:
         self.stopped = True
         self.gpspoller.stop()
     
+    def has_fix(self):
+      return self.session.fix.mode > 1
+    
     def airodump(self):
       FNULL = open(os.devnull, 'w')
       prefix= 'wifi-dump'
@@ -579,33 +586,33 @@ class Application:
         f = open("%s-01.csv"%prefix)
         for line in f:
           fields = line.split(',')
-          if lat !=0 and lon != 0:
-            if len(fields) >= 13:
-              if(fields[0] != 'BSSID'):
-                n = {}
-                n["latitude"] = lat
-                n["longitude"] = lon
-                n["bssid"] = fields[0]
-                n["essid"] = fields[13]
-                n["mode"] = 'Master'
-                n["channel"] = fields[3]
-                n["frequency"] = -1
-                n["signal"] = float(fields[8])
-                n["encryption"] = fields[7] != "OPN"
-                if n["bssid"] not in self.ignore_bssid:
-                  wifis.append(n)
+          if len(fields) >= 13:
+            if(fields[0] != 'BSSID'):
+              n = {}
+              n["latitude"] = lat
+              n["longitude"] = lon
+              n["bssid"] = fields[0]
+              n["essid"] = fields[13]
+              n["mode"] = 'Master'
+              n["channel"] = fields[3]
+              n["frequency"] = -1
+              n["signal"] = float(fields[8])
+              n["encryption"] = fields[7] != "OPN"
+              if n["bssid"] not in self.ignore_bssid:
+                wifis.append(n)
         f.close()
         updated = 0
-        for w in wifis:
-          if self.update(w):
-              updated += 1
-          if updated != 0:
-              self.log("updated", updated)
+        if self.has_fix():
+          for w in wifis:
+            if self.update(w):
+                updated += 1
+            if updated != 0:
+                self.log("updated", updated)
+                self.db.commit()
           self.last_updated = updated
-          self.network_count = len(wifis)
-          if self.network_count == 0:
-              self.log("wifi", 'No results')
-          self.db.commit()
+        self.network_count = len(wifis)
+        if self.network_count == 0:
+            self.log("wifi", 'No results')
         
         if self.args.sleep is not None:
             sleep = int(self.args.sleep)
@@ -740,7 +747,8 @@ class Application:
         lon, lat = self.getGPSData()
         wifis = []
         
-        if lat !=0 and lon != 0:
+        if self.has_fix():
+          if lat !=0 and lon != 0:
             for i in range(0,len(networks["essid"])):
                 n = {}
                 n["latitude"] = lat
