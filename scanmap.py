@@ -43,10 +43,10 @@ def parse_args():
 
 
 class GpsPoller(threading.Thread):
-  def __init__(self, gpsd):
+  def __init__(self, gpsd, app):
     threading.Thread.__init__(self)
     self.gpsd = gpsd
-    self.current_value = None
+    self.application = app
     self.date = False
     self.running = True #setting the thread running to true
 
@@ -62,6 +62,10 @@ class GpsPoller(threading.Thread):
         gpstime = self.gpsd.utc[0:4] + self.gpsd.utc[5:7] + self.gpsd.utc[8:10] + ' ' + str(tzhour) + self.gpsd.utc[13:19]
         print 'Setting system time to GPS time...'
         os.system('sudo date --set="%s"' % gpstime)
+      if self.gpsd.fix.mode > 1:
+        with self.application.lock:
+          q = 'insert into gps (latitude, longitude) values ("%s", "%s")'%(self.gpsd.fix.latitude, self.gpsd.fix.longitude)
+          self.application.query.execute(q)
 
   def stop(self):
       self.running = False
@@ -424,7 +428,7 @@ class Application:
         self.stopped = False
         self.networks = []
         self.session = gps(mode=WATCH_ENABLE)
-        self.gpspoller = GpsPoller(self.session)
+        self.gpspoller = GpsPoller(self.session, self)
         self.gpspoller.start()
         self.ignore_bssid = []
         self.last_fix = False
@@ -558,6 +562,8 @@ class Application:
               (date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, name text, value text)''')
           self.query.execute('''CREATE TABLE config
               (key text, value text)''')
+          self.query.execute('''CREATE TABLE gps
+              (latitude real, longitude real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
     def log(self, name, value):
         print "%s   %s : %s"%(datetime.datetime.now(), name, value)
