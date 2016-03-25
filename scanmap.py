@@ -63,9 +63,8 @@ class GpsPoller(threading.Thread):
         print 'Setting system time to GPS time...'
         os.system('sudo date --set="%s"' % gpstime)
       if self.gpsd.fix.mode > 1:
-        with self.application.lock:
-          q = 'insert into gps (latitude, longitude) values ("%s", "%s")'%(self.gpsd.fix.latitude, self.gpsd.fix.longitude)
-          self.application.query.execute(q)
+        q = 'insert into gps (latitude, longitude) values ("%s", "%s")'%(self.gpsd.fix.latitude, self.gpsd.fix.longitude)
+        self.application.query(q)
 
   def stop(self):
       self.running = False
@@ -158,13 +157,13 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
               map.addLayer(new OpenLayers.Layer.OSM());
               
               markers = new OpenLayers.Layer.Markers( "Markers" );
-              map.addLayer(markers);
-              
-              var lonLat = new OpenLayers.LonLat('''+str(networks['center'][1])+", "+str(networks['center'][0])+''').transform( fromProjection, toProjection);
-              if (!map.getCenter()) map.setCenter (lonLat, 16);
-              
-              
-              '''
+              map.addLayer(markers);'''
+      if networks['center'] is not None:
+        html+='''
+        var lonLat = new OpenLayers.LonLat('''+str(networks['center'][1])+", "+str(networks['center'][0])+''').transform( fromProjection, toProjection);
+        if (!map.getCenter()) map.setCenter (lonLat, 16);
+        current_position = new OpenLayers.Marker(lonLat);
+        '''
       lastLat = None
       lastLon = None
       count = 0
@@ -206,7 +205,6 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           lastLon = lon
 
       html +='''
-              current_position = new OpenLayers.Marker(lonLat);
               feature = new OpenLayers.Feature.Vector(
                   new OpenLayers.Geometry.Point(0,0),
                   {}, {
@@ -316,7 +314,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       html = '<html>'
       if self.server.app.has_fix():
         lat, lon = self.server.app.getGPSData()
-        html += 'Current position: <a href="http://www.openstreetmap.org/search?query=%s%2C%s#map=18/45.00000/0.00000" > %s, %s</a> <br/>'%(lat, lon, lat, lon)
+        html += 'Current position: <a href="http://www.openstreetmap.org/search?query=%s%%2C%s#map=18/45.00000/0.00000" > %s, %s</a> <br/>'%(lat, lon, lat, lon)
       else:
         html += 'Current position: Unknown<br/>'
       html += 'Current wifi scan: %s<br/>'%self.server.app.network_count
@@ -441,10 +439,10 @@ class Application:
         else:
             db = "./wifimap.db"
         self.db = sqlite3.connect(db, check_same_thread=False)
-        self.query = self.db.cursor()
+        self.query_db = self.db.cursor()
         
         try:
-            self.query.execute('''select * from wifis''')
+            self.query('''select * from wifis''')
         except:
             self.createDatabase()
         
@@ -495,13 +493,25 @@ class Application:
         self.httpd = WebuiHTTPServer(("", port),self, WebuiHTTPHandler)
         self.httpd.start()
     
+    def query(self, query):
+      with self.lock:
+        self.query_db.execute(query)
+    
+    def fetchone(self, query):
+      with self.lock:
+        self.query_db.execute(query)
+        return self.query_db.fetchone()
+    
+    def fetchall(self, query):
+      with self.lock:
+        self.query_db.execute(query)
+        return self.query_db.fetchall()
+    
     def getConfig(self, _key):
       try:
-        with self.lock:
-          q = '''select value from config where key == "%s"'''%_key
-          self.query.execute(q)
-          res = self.query.fetchone()
-          return res[0]
+        q = '''select value from config where key == "%s"'''%_key
+        res = self.query.fetchone(q)
+        return res[0]
       except:
         return ''
     
@@ -514,68 +524,62 @@ class Application:
     
     def getStat(self):
       stat = {}
-      with self.lock:
-        self.query.execute('''select count(*) from wifis where encryption == 0''')
-        stat['open_count'] = self.query.fetchone()[0]
-        
-        self.query.execute('''select count(*) from wifis''')
-        stat['total'] = self.query.fetchone()[0]
-        
-        self.query.execute('''select essid, count(*) as nb from wifis group by essid order by nb desc limit 15''')
-        stat['best'] = self.query.fetchall()
+      q = '''select count(*) from wifis where encryption == 0'''
+      stat['open_count'] = self.fetchone(q)[0]
+      
+      q = '''select count(*) from wifis'''
+      stat['total'] = self.fetchone(q)[0]
+      
+      q = '''select essid, count(*) as nb from wifis group by essid order by nb desc limit 15'''
+      stat['best'] = self.fetchall(q)
       return stat
     
     def getLastUpdate(self):
-        with self.lock:
-          self.query.execute('''select date from wifis order by date desc limit 1''')
-          return self.query.fetchone()
+        q = '''select date from wifis order by date desc limit 1'''
+        return self.fetchone(q)
     
     def getAll(self, date = None):
         wifis = {}
         date_where = ''
         if date is not None:
           date_where = 'where date > "%s"'%date
-        with self.lock:
-          q = 'select * from wifis %s order by latitude, longitude'%date_where
-          self.query.execute(q)
-          wifis["networks"] = self.query.fetchall()
-          
-          self.query.execute('select avg(latitude), avg(longitude) from wifis %s group by date order by date desc limit 1'%date_where)
-          wifis["center"] = self.query.fetchone()
+        q = 'select * from wifis %s order by latitude, longitude'%date_where
+        wifis["networks"] = self.fetchall(q)
+        
+        q = 'select avg(latitude), avg(longitude) from wifis %s group by date order by date desc limit 1'%date_where
+        wifis["center"] = self.fetchone(q)
         wifis["stat"] = self.getStat()
         return wifis
     
     def getLast(self):
         wifis = {}
-        with self.lock:
-          self.query.execute('''select * from wifis order by date desc, latitude, longitude limit 10''')
-          wifis["networks"] = self.query.fetchall()
+        q = '''select * from wifis order by date desc, latitude, longitude limit 10'''
+        wifis["networks"] = self.fetchall(q)
         wifis["stat"] = self.getStat()
         return wifis
     
     def createDatabase(self):
         print "initiallize db"
-        with self.lock:
-          self.query.execute('''CREATE TABLE wifis
-              (bssid text, essid text, encryption bool, signal real, longitude real, latitude real, frequency real, channel int, mode text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-          self.query.execute('''CREATE TABLE logs
-              (date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, name text, value text)''')
-          self.query.execute('''CREATE TABLE config
-              (key text, value text)''')
-          self.query.execute('''CREATE TABLE gps
-              (latitude real, longitude real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        self.query('''CREATE TABLE wifis
+            (bssid text, essid text, encryption bool, signal real, longitude real, latitude real, frequency real, channel int, mode text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        self.query('''CREATE TABLE logs
+            (date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, name text, value text)''')
+        self.query('''CREATE TABLE config
+            (key text, value text)''')
+        self.query('''CREATE TABLE gps
+            (latitude real, longitude real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
     def log(self, name, value):
         print "%s   %s : %s"%(datetime.datetime.now(), name, value)
-        with self.lock:
-          q = 'insert into logs (name, value) values ("%s", "%s")'%(name, value)
-          self.query.execute(q)
+        q = 'insert into logs (name, value) values ("%s", "%s")'%(name, value)
+        self.query(q)
     
     def stop(self):
         self.stopped = True
         self.gpspoller.stop()
     
     def has_fix(self):
+      print self.session.fix.mode
       return self.session.fix.mode > 1
     
     def airodump(self):
@@ -665,13 +669,12 @@ class Application:
                 self.log("gps", 'FIX')
                 self.last_fix = True
                 
-        self.query.execute('''select * from wifis where bssid="%s" and essid="%s"'''%(wifi["bssid"], wifi["essid"]))
-        res = self.query.fetchone()
+        q = '''select * from wifis where bssid="%s" and essid="%s"'''%(wifi["bssid"], wifi["essid"])
+        res = self.fetchone(q)
         if res is None:
             q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode, date) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", CURRENT_TIMESTAMP )'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"])
             try:
-              with self.lock:
-                self.query.execute(q)
+              self.query(q)
               return True
             except:
               print "sqlError: %s"%q
@@ -681,8 +684,7 @@ class Application:
               signal = res[3]
               q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", date=CURRENT_TIMESTAMP where bssid="%s" and essid="%s"'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], wifi["bssid"], wifi["essid"])
               if wifi["signal"] < signal:
-                  with self.lock:
-                    self.query.execute(q)
+                  self.query(q)
                   return True
             except:
               print "sqlError: %s"%q
