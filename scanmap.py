@@ -167,6 +167,32 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       lastLat = None
       lastLon = None
       count = 0
+      def generate(networks_same_position):
+        count = len(networks_same_position)
+        if count == 0:
+          return ''
+        html = ''
+        names = '<ul>'
+        open_icon=''
+        for i in networks_same_position:
+          key = ''
+          if not i[2]:
+            open_icon='-open'
+          else:
+            key = '<img src=\\"locked.png\\">'
+          manufacturer = self.server.app.getManufacturer(i[0])
+          names = "%s<li>%s %s %s</li>"%(names,key, i[1], manufacturer)
+        name = "%s</ul>"%names
+        icon = "marker%s.png"%open_icon
+        if count >= 2:
+          icon ="marker-few%s.png"%open_icon
+        if count >= 4:
+          icon ="marker-many%s.png"%open_icon
+        html+= '''
+      setMarker(markers, '''+str(lat)+''', '''+str(lon)+''', "'''+names+'''", "'''+icon+'''");'''
+        return html
+      
+      
       networks_same_position = []
       for n in networks["networks"]:
           lat = n[5]
@@ -176,34 +202,15 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             lastLat = lat
             lastLon = lon
           if lat == lastLat and lon == lastLon:
-            count += 1
             networks_same_position.append(n)
           else:
-            names = '<ul>'
-            open_icon=''
-            for i in networks_same_position:
-              key = ''
-              if not i[2]:
-                open_icon='-open'
-              else:
-                key = '<img src=\\"locked.png\\">'
-              manufacturer = self.server.app.getManufacturer(i[0])
-              names = "%s<li>%s %s %s</li>"%(names,key, i[1], manufacturer)
-            name = "%s</ul>"%names
-            icon = "marker%s.png"%open_icon
-            if count >= 2:
-              icon ="marker-few%s.png"%open_icon
-            if count >= 4:
-              icon ="marker-many%s.png"%open_icon
-            html+= '''
-          setMarker(markers, '''+str(lat)+''', '''+str(lon)+''', "'''+names+'''", "'''+icon+'''");'''
+            html += generate(networks_same_position)
             networks_same_position = []
             networks_same_position.append(n)
-            count = 1
             
           lastLat = lat
           lastLon = lon
-
+      html += generate(networks_same_position)
       html +='''
               feature = new OpenLayers.Feature.Vector(
                   new OpenLayers.Geometry.Point(0,0),
@@ -579,7 +586,6 @@ class Application:
         self.gpspoller.stop()
     
     def has_fix(self):
-      print self.session.fix.mode
       return self.session.fix.mode > 1
     
     def airodump(self):
