@@ -313,7 +313,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       
       html = '<html>'
       if self.server.app.has_fix():
-        lat, lon = self.server.app.getGPSData()
+        lon, lat = self.server.app.getGPSData()
         html += 'Current position: <a href="http://www.openstreetmap.org/search?query=%s%%2C%s#map=18/45.00000/0.00000" > %s, %s</a> <br/>'%(lat, lon, lat, lon)
       else:
         html += 'Current position: Unknown<br/>'
