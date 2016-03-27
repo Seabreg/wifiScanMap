@@ -596,8 +596,8 @@ class Application:
       process = subprocess.Popen(cmd, stderr=FNULL)
       time.sleep(1)
       #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
-      lon, lat = self.getGPSData()
       while not self.stopped:
+        lon, lat = self.getGPSData()
         wifis = []
         f = open("%s-01.csv"%prefix)
         for line in f:
