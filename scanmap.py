@@ -213,18 +213,18 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           function init(){
               map = new OpenLayers.Map('map',
                       { maxExtent: new OpenLayers.Bounds(-20037508.34,-20037508.34,20037508.34,20037508.34),
-                      numZoomLevels: 18,
+                      numZoomLevels: 21,
                       maxResolution: 156543.0399,
                       units: 'm'
                       });
               map.addLayer(new OpenLayers.Layer.OSM());
             
               
-              markers = new OpenLayers.Layer.Markers( "Markers" );
-              map.addLayer(markers);
-              
               position_layer = new OpenLayers.Layer.Vector("position");
               map.addLayer(position_layer);
+              
+              markers = new OpenLayers.Layer.Markers( "Markers" );
+              map.addLayer(markers);
               '''
       if networks['center'] is not None:
         html+='''
