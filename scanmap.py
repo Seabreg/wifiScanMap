@@ -184,14 +184,19 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
       <script>
       var current_gps_position;
+      var current_wifi_position;
       var markers;
           function update(){
           $.getJSON('/status.json').done( function(data){
-              if(data['gps']['fix'])
+              if(data['position']['gps']['fix'])
               {
-                  var lonLat = new OpenLayers.LonLat( data['position']['gps']['longitude'] ,data['position']['gps']['latitude']);
-                  var newPx = map.getLayerPxFromLonLat(lonLat);
-                  current_gps_position.moveTo(newPx);
+                  var lonLat = new OpenLayers.LonLat( data['position']['gps']['longitude'] ,data['position']['gps']['latitude']).transform( new OpenLayers.Projection("EPSG:4326"), map.getProjectionObject() );
+                  current_gps_position.moveTo(lonLat);
+              }
+              if(data['position']['wifi']['fix'])
+              {
+                  var lonLat = new OpenLayers.LonLat( data['position']['wifi']['longitude'] ,data['position']['wifi']['latitude']).transform( new OpenLayers.Projection("EPSG:4326"), map.getProjectionObject() );
+                  current_wifi_position.moveTo(lonLat);
               }
               
           }) .fail(function(d, textStatus, error) {
@@ -221,6 +226,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         var lonLat = new OpenLayers.LonLat('''+str(networks['center'][1])+", "+str(networks['center'][0])+''').transform( fromProjection, toProjection);
         if (!map.getCenter()) map.setCenter (lonLat, 16);
         current_gps_position = new OpenLayers.Marker(lonLat);
+        current_wifi_position = new OpenLayers.Marker(lonLat);
         '''
       lastLat = None
       lastLon = None
@@ -286,9 +292,29 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
               graphicWidth:48,
               rotation:0
               };
+              
+              wifi_feature = new OpenLayers.Feature.Vector(
+                  new OpenLayers.Geometry.Point(0,0),
+                  {}, {
+                  fillColor : 'green',
+                  fillOpacity : 0,                    
+                  strokeColor : "#ffffff",
+                  strokeOpacity : 1,
+                  strokeWidth : 1,
+                  pointRadius : 8
+                  }
+              );
+          
+              feature.style = {
+              graphicWidth:48,
+              rotation:0
+              };
+              
               current_gps_position.feature = feature;
               markers.addMarker(current_gps_position);
-
+              
+              current_wifi_position.feature = wifi_feature;
+              markers.addMarker(current_wifi_position);
       
               setTimeout(update,1000);
           }
@@ -337,12 +363,17 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
     
     def _get_status(self):
       gps_status = self.server.app.has_fix()
-      
-      status = {'gps':{
+      wifi_status = self.server.app.wifiPosition is not None
+      status = {
+      'wifi': {'updated':self.server.app.last_updated},
+      'position': {
+        'gps':{
           'fix':(gps_status)
           },
-      'wifi': {'updated':self.server.app.last_updated},
-      'position': {}
+        'wifi':{
+          'fix':(wifi_status)
+          }
+        }
       }
       
       if gps_status:
