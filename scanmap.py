@@ -191,12 +191,12 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
               if(data['position']['gps']['fix'])
               {
                   var lonLat = new OpenLayers.LonLat( data['position']['gps']['longitude'] ,data['position']['gps']['latitude']).transform( new OpenLayers.Projection("EPSG:4326"), map.getProjectionObject() );
-                  current_gps_position.moveTo(lonLat);
+                  current_gps_position.move(lonLat);
               }
               if(data['position']['wifi']['fix'])
               {
                   var lonLat = new OpenLayers.LonLat( data['position']['wifi']['longitude'] ,data['position']['wifi']['latitude']).transform( new OpenLayers.Projection("EPSG:4326"), map.getProjectionObject() );
-                  current_wifi_position.moveTo(lonLat);
+                  current_wifi_position.move(lonLat);
               }
               
           }) .fail(function(d, textStatus, error) {
@@ -218,15 +218,18 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
                       units: 'm'
                       });
               map.addLayer(new OpenLayers.Layer.OSM());
+            
               
               markers = new OpenLayers.Layer.Markers( "Markers" );
-              map.addLayer(markers);'''
+              map.addLayer(markers);
+              
+              position_layer = new OpenLayers.Layer.Vector("position");
+              map.addLayer(position_layer);
+              '''
       if networks['center'] is not None:
         html+='''
         var lonLat = new OpenLayers.LonLat('''+str(networks['center'][1])+", "+str(networks['center'][0])+''').transform( fromProjection, toProjection);
         if (!map.getCenter()) map.setCenter (lonLat, 16);
-        current_gps_position = new OpenLayers.Marker(lonLat);
-        current_wifi_position = new OpenLayers.Marker(lonLat);
         '''
       lastLat = None
       lastLon = None
@@ -276,45 +279,32 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           lastLon = lon
       html += generate(networks_same_position)
       html +='''
-              feature = new OpenLayers.Feature.Vector(
+            current_gps_position = new OpenLayers.Feature.Vector(
                   new OpenLayers.Geometry.Point(0,0),
                   {}, {
                   fillColor : 'red',
-                  fillOpacity : 0,                    
+                  fillOpacity : 1,                    
                   strokeColor : "#ffffff",
                   strokeOpacity : 1,
                   strokeWidth : 1,
-                  pointRadius : 8
+                  pointRadius : 4
                   }
               );
-          
-              feature.style = {
-              graphicWidth:48,
-              rotation:0
-              };
               
-              wifi_feature = new OpenLayers.Feature.Vector(
+              current_wifi_position = new OpenLayers.Feature.Vector(
                   new OpenLayers.Geometry.Point(0,0),
                   {}, {
                   fillColor : 'green',
-                  fillOpacity : 0,                    
+                  fillOpacity : 1,                    
                   strokeColor : "#ffffff",
                   strokeOpacity : 1,
                   strokeWidth : 1,
-                  pointRadius : 8
+                  pointRadius : 4
                   }
               );
-          
-              feature.style = {
-              graphicWidth:48,
-              rotation:0
-              };
-              
-              current_gps_position.feature = feature;
-              markers.addMarker(current_gps_position);
-              
-              current_wifi_position.feature = wifi_feature;
-              markers.addMarker(current_wifi_position);
+
+              position_layer.addFeatures(current_gps_position);
+              position_layer.addFeatures(current_wifi_position);
       
               setTimeout(update,1000);
           }
@@ -377,13 +367,15 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       }
       
       if gps_status:
-          status['position']['gps'] = {'latitude':self.server.app.session.fix.latitude , 'longitude':self.server.app.session.fix.longitude}
+          status['position']['gps']['latitude'] = self.server.app.session.fix.latitude
+          status['position']['gps']['longitude'] = self.server.app.session.fix.longitude
       
       status['sync'] = self.server.app.getLastUpdate()
       
       wifiPos = self.server.app.wifiPosition
       if wifiPos is not None:
-        status['position']['wifi'] = {'latitude':wifiPos[0] , 'longitude':wifiPos[1]}
+        status['position']['wifi']['latitude'] = wifiPos[0]
+        status['position']['wifi']['longitude'] = wifiPos[1]
       
       self.send_response(200)
       self.end_headers()
