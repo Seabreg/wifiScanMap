@@ -69,7 +69,65 @@ class GpsPoller(threading.Thread):
   def stop(self):
       self.running = False
     
-   
+class AirodumpPoller(threading.Thread):
+  def __init__(self, app):
+    threading.Thread.__init__(self)
+    self.application = app
+    self.lock = Lock()
+    self.networks = []
+    self.running = True #setting the thread running to true
+
+  def run(self):
+    while self.running:
+      if self.application.args.sleep is not None:
+        sleep = int(self.application.args.sleep)
+      else:
+        sleep = 1
+            
+      FNULL = open(os.devnull, 'w')
+      prefix= 'wifi-dump'
+      os.system("rm wifi-dump*")
+      cmd = ['airodump-ng', '-w', prefix,  '--berlin', str(sleep),self.application.interface]
+      process = subprocess.Popen(cmd, stderr=FNULL)
+      time.sleep(1)
+      #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
+      while self.running:
+        fix = self.application.has_fix()
+        lon, lat = self.application.getGPSData()
+        wifis = []
+        f = open("%s-01.csv"%prefix)
+        for line in f:
+          fields = line.split(',')
+          if len(fields) >= 13:
+            if(fields[0] != 'BSSID'):
+              n = {}
+              try:
+                if fix:
+                  n["latitude"] = lat
+                  n["longitude"] = lon
+                n["bssid"] = fields[0]
+                n["essid"] = fields[13]
+                n["mode"] = 'Master'
+                n["channel"] = fields[3]
+                n["frequency"] = -1
+                n["signal"] = float(fields[8])
+                n["encryption"] = fields[7] != "OPN"
+                if n["bssid"] not in self.application.ignore_bssid:
+                  wifis.append(n)
+              except:
+                self.application.log('airodump' , n)
+        f.close()
+        with self.lock:
+          self.networks = wifis
+        time.sleep(sleep)
+        
+  def getNetworks(self):
+    with self.lock:
+      return self.networks
+          
+  def stop(self):
+      self.running = False
+
 class Synchronizer(threading.Thread):
   def __init__(self, application, uri):
     self.application = application
@@ -125,15 +183,15 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       <script type="text/javascript" src="http://www.openstreetmap.org/openlayers/OpenStreetMap.js"></script>
       <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
       <script>
-      var current_position;
+      var current_gps_position;
       var markers;
           function update(){
           $.getJSON('/status.json').done( function(data){
               if(data['gps']['fix'])
               {
-                  var lonLat = new OpenLayers.LonLat( data['gps']['position']['longitude'] ,data['gps']['position']['latitude']);
+                  var lonLat = new OpenLayers.LonLat( data['position']['gps']['longitude'] ,data['position']['gps']['latitude']);
                   var newPx = map.getLayerPxFromLonLat(lonLat);
-                  current_position.moveTo(newPx);
+                  current_gps_position.moveTo(newPx);
               }
               
           }) .fail(function(d, textStatus, error) {
@@ -162,7 +220,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         html+='''
         var lonLat = new OpenLayers.LonLat('''+str(networks['center'][1])+", "+str(networks['center'][0])+''').transform( fromProjection, toProjection);
         if (!map.getCenter()) map.setCenter (lonLat, 16);
-        current_position = new OpenLayers.Marker(lonLat);
+        current_gps_position = new OpenLayers.Marker(lonLat);
         '''
       lastLat = None
       lastLon = None
@@ -228,8 +286,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
               graphicWidth:48,
               rotation:0
               };
-              current_position.feature = feature;
-              markers.addMarker(current_position);
+              current_gps_position.feature = feature;
+              markers.addMarker(current_gps_position);
 
       
               setTimeout(update,1000);
@@ -283,13 +341,18 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       status = {'gps':{
           'fix':(gps_status)
           },
-      'wifi': {'updated':self.server.app.last_updated}
+      'wifi': {'updated':self.server.app.last_updated},
+      'position': {}
       }
       
       if gps_status:
-          status['gps']['position'] = {'latitude':self.server.app.session.fix.latitude , 'longitude':self.server.app.session.fix.longitude}
+          status['position']['gps'] = {'latitude':self.server.app.session.fix.latitude , 'longitude':self.server.app.session.fix.longitude}
       
       status['sync'] = self.server.app.getLastUpdate()
+      
+      wifiPos = self.server.app.wifiPosition
+      if wifiPos is not None:
+        status['position']['wifi'] = {'latitude':wifiPos[0] , 'longitude':wifiPos[1]}
       
       self.send_response(200)
       self.end_headers()
@@ -321,9 +384,14 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       html = '<html>'
       if self.server.app.has_fix():
         lon, lat = self.server.app.getGPSData()
-        html += 'Current position: <a href="http://www.openstreetmap.org/search?query=%s%%2C%s#map=18/45.00000/0.00000" > %s, %s</a> <br/>'%(lat, lon, lat, lon)
+        html += 'Current gps position: <a href="http://www.openstreetmap.org/search?query=%s%%2C%s#map=18/45.00000/0.00000" > %s, %s</a> <br/>'%(lat, lon, lat, lon)
       else:
-        html += 'Current position: Unknown<br/>'
+        html += 'Current gps position: Unknown<br/>'
+      wifiPos = self.server.app.wifiPosition
+      if wifiPos is not None:
+        html += 'Current wifi position: <a href="http://www.openstreetmap.org/search?query=%s%%2C%s#map=18/45.00000/0.00000" > %s, %s</a> <br/>'%(wifiPos[0], wifiPos[1], wifiPos[0], wifiPos[1])
+      else:
+        html += 'Current wifi position: Unknown<br/>'
       html += 'Current wifi scan: %s<br/>'%self.server.app.network_count
       html += 'Last update: %s<br/>'%self.server.app.last_updated
       
@@ -431,7 +499,6 @@ class Application:
         self.manufacturers = {}
         self.lock = Lock()
         self.stopped = False
-        self.networks = []
         self.session = gps(mode=WATCH_ENABLE)
         self.gpspoller = GpsPoller(self.session, self)
         self.gpspoller.start()
@@ -440,8 +507,8 @@ class Application:
         self.last_updated = 0
         self.network_count = 0
         self.interface = ''
-        
-        self.airodump_wifis = []
+        self.airodump = None
+        self.wifiPosition = None
 
         if(self.args.database is not None):
             db = self.args.database
@@ -590,79 +657,37 @@ class Application:
     def has_fix(self):
       return self.session.fix.mode > 1
     
-    def airodump(self):
-      if self.args.sleep is not None:
-          sleep = int(self.args.sleep)
-      else:
-          sleep = 1
-            
-      FNULL = open(os.devnull, 'w')
-      prefix= 'wifi-dump'
-      os.system("rm wifi-dump*")
-      cmd = ['airodump-ng', '-w', prefix,  '--berlin', str(sleep),self.interface]
-      process = subprocess.Popen(cmd, stderr=FNULL)
-      time.sleep(1)
-      #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
-      while not self.stopped:
-        fix = self.has_fix()
-        lon, lat = self.getGPSData()
-        wifis = []
-        f = open("%s-01.csv"%prefix)
-        for line in f:
-          fields = line.split(',')
-          if len(fields) >= 13:
-            if(fields[0] != 'BSSID'):
-              n = {}
-              try:
-                if fix:
-                  n["latitude"] = lat
-                  n["longitude"] = lon
-                n["bssid"] = fields[0]
-                n["essid"] = fields[13]
-                n["mode"] = 'Master'
-                n["channel"] = fields[3]
-                n["frequency"] = -1
-                n["signal"] = float(fields[8])
-                n["encryption"] = fields[7] != "OPN"
-                if n["bssid"] not in self.ignore_bssid:
-                  wifis.append(n)
-              except:
-                self.log('airodump' , n)
-        f.close()
-        with self.lock:
-          self.airodump_wifis = wifis
-        
-        time.sleep(sleep/2)
-    
     def run(self):
         if self.args.monitor:
           if USE_SCAPY:
             sniff(iface=self.interface, prn = self.packet_handler)
           else:
-            self.airodump()
-        else:
-          while not self.stopped:
-            try:
-              wifis = self.scanForWifiNetworks()
-              updated = 0
-              for w in wifis:
-                  if self.update(w):
-                      updated += 1
-              if updated != 0:
-                  self.log("updated", updated)
-              self.last_updated = updated
-              self.network_count = len(wifis)
-              if self.network_count == 0:
-                  self.log("wifi", 'No results')
-              self.db.commit()
-            except:
-              self.log("wifi", 'fail')
-            if self.args.sleep is not None:
-                sleep = int(self.args.sleep)
-            else:
-                sleep = 1
-            
-            time.sleep(sleep)
+            self.airodump = AirodumpPoller(self)
+            self.airodump.start()
+        
+        while not self.stopped:
+          try:
+            wifis = self.scanForWifiNetworks()
+            updated = 0
+            for w in wifis:
+                if self.update(w):
+                    updated += 1
+            if updated != 0:
+                self.log("updated", updated)
+            self.last_updated = updated
+            self.network_count = len(wifis)
+            if self.network_count == 0:
+                self.log("wifi", 'No results')
+            self.wifiPosition = self.getWifiPosition(wifis)
+            self.db.commit()
+          except:
+            self.log("wifi", 'fail')
+          if self.args.sleep is not None:
+              sleep = int(self.args.sleep)
+          else:
+              sleep = 1
+          
+          time.sleep(sleep)
     
     def update(self, wifi):
         if not wifi.has_key('latitude'):
@@ -721,7 +746,7 @@ class Application:
     
     def scanForWifiNetworks(self):
         if self.args.monitor:
-          return self.airodump_wifis
+          return self.airodump.getNetworks()
         else:
           networkInterface = self.interface
           output = ""
@@ -786,9 +811,14 @@ class Application:
             
     def getWifiPosition(self, wifis):
       bssid = []
+      if len(wifis) == 0:
+        return None
       for n in wifis:
         bssid.append("\"%s\""%n["bssid"])
       q = "select avg(latitude), avg(longitude) from wifis where bssid in ( %s )"%(','.join(bssid))
+      res = self.fetchone(q)
+      if res is not None:
+        return (res[0], res[1])
            
     def getGPSData(self):
         longitude = self.session.fix.longitude
