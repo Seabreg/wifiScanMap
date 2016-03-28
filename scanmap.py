@@ -605,23 +605,29 @@ class Application:
           if len(fields) >= 13:
             if(fields[0] != 'BSSID'):
               n = {}
-              n["latitude"] = lat
-              n["longitude"] = lon
-              n["bssid"] = fields[0]
-              n["essid"] = fields[13]
-              n["mode"] = 'Master'
-              n["channel"] = fields[3]
-              n["frequency"] = -1
-              n["signal"] = float(fields[8])
-              n["encryption"] = fields[7] != "OPN"
-              if n["bssid"] not in self.ignore_bssid:
-                wifis.append(n)
+              try:
+                n["latitude"] = lat
+                n["longitude"] = lon
+                n["bssid"] = fields[0]
+                n["essid"] = fields[13]
+                n["mode"] = 'Master'
+                n["channel"] = fields[3]
+                n["frequency"] = -1
+                n["signal"] = float(fields[8])
+                n["encryption"] = fields[7] != "OPN"
+                if n["bssid"] not in self.ignore_bssid:
+                  wifis.append(n)
+              except:
+                self.log('airodump' , n)
         f.close()
         updated = 0
         if self.has_fix():
           for w in wifis:
-            if self.update(w):
-                updated += 1
+            try:
+              if self.update(w):
+                  updated += 1
+            except:
+              self.log('airodump-update', w)
             if updated != 0:
                 self.log("updated", updated)
                 self.db.commit()
