@@ -440,6 +440,8 @@ class Application:
         self.last_updated = 0
         self.network_count = 0
         self.interface = ''
+        
+        self.airodump_wifis = []
 
         if(self.args.database is not None):
             db = self.args.database
@@ -589,14 +591,20 @@ class Application:
       return self.session.fix.mode > 1
     
     def airodump(self):
+      if self.args.sleep is not None:
+          sleep = int(self.args.sleep)
+      else:
+          sleep = 1
+            
       FNULL = open(os.devnull, 'w')
       prefix= 'wifi-dump'
       os.system("rm wifi-dump*")
-      cmd = ['airodump-ng', '-w', prefix,  '--berlin', '1',self.interface]
+      cmd = ['airodump-ng', '-w', prefix,  '--berlin', str(sleep),self.interface]
       process = subprocess.Popen(cmd, stderr=FNULL)
       time.sleep(1)
       #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
       while not self.stopped:
+        fix = self.has_fix()
         lon, lat = self.getGPSData()
         wifis = []
         f = open("%s-01.csv"%prefix)
@@ -606,8 +614,9 @@ class Application:
             if(fields[0] != 'BSSID'):
               n = {}
               try:
-                n["latitude"] = lat
-                n["longitude"] = lon
+                if fix:
+                  n["latitude"] = lat
+                  n["longitude"] = lon
                 n["bssid"] = fields[0]
                 n["essid"] = fields[13]
                 n["mode"] = 'Master'
@@ -620,28 +629,10 @@ class Application:
               except:
                 self.log('airodump' , n)
         f.close()
-        updated = 0
-        if self.has_fix():
-          for w in wifis:
-            try:
-              if self.update(w):
-                  updated += 1
-            except:
-              self.log('airodump-update', w)
-            if updated != 0:
-                self.log("updated", updated)
-                self.db.commit()
-          self.last_updated = updated
-        self.network_count = len(wifis)
-        if self.network_count == 0:
-            self.log("wifi", 'No results')
+        with self.lock:
+          self.airodump_wifis = wifis
         
-        if self.args.sleep is not None:
-            sleep = int(self.args.sleep)
-        else:
-            sleep = 1
-        
-        time.sleep(sleep)
+        time.sleep(sleep/2)
     
     def run(self):
         if self.args.monitor:
@@ -651,6 +642,7 @@ class Application:
             self.airodump()
         else:
           while not self.stopped:
+            try:
               wifis = self.scanForWifiNetworks()
               updated = 0
               for w in wifis:
@@ -663,14 +655,18 @@ class Application:
               if self.network_count == 0:
                   self.log("wifi", 'No results')
               self.db.commit()
-              if self.args.sleep is not None:
-                  sleep = int(self.args.sleep)
-              else:
-                  sleep = 1
-              
-              time.sleep(sleep)
+            except:
+              self.log("wifi", 'fail')
+            if self.args.sleep is not None:
+                sleep = int(self.args.sleep)
+            else:
+                sleep = 1
+            
+            time.sleep(sleep)
     
     def update(self, wifi):
+        if not wifi.has_key('latitude'):
+          return False
         if math.isnan(wifi["longitude"]):
             if self.last_fix:
                 self.log("gps", 'NO_FIX')
@@ -724,15 +720,18 @@ class Application:
       return ''
     
     def scanForWifiNetworks(self):
-        networkInterface = self.interface
-        output = ""
-        if(networkInterface!=None):		
-            command = ["iwlist", networkInterface, "scanning"]
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            process.wait()
-            (stdoutdata, stderrdata) = process.communicate();
-            output =  stdoutdata
-            return self.parseIwlistOutput(output)
+        if self.args.monitor:
+          return self.airodump_wifis
+        else:
+          networkInterface = self.interface
+          output = ""
+          if(networkInterface!=None):		
+              command = ["iwlist", networkInterface, "scanning"]
+              process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              process.wait()
+              (stdoutdata, stderrdata) = process.communicate();
+              output =  stdoutdata
+              return self.parseIwlistOutput(output)
     
     def parseIwlistOutput(self, data):
         networks = {}
@@ -767,25 +766,29 @@ class Application:
         lon, lat = self.getGPSData()
         wifis = []
         
-        if self.has_fix():
-          if lat !=0 and lon != 0:
-            for i in range(0,len(networks["essid"])):
-                n = {}
+        for i in range(0,len(networks["essid"])):
+            n = {}
+            if self.has_fix():
+              if lat !=0 and lon != 0:
                 n["latitude"] = lat
                 n["longitude"] = lon
-                n["bssid"] = networks["bssid"][i]
-                n["essid"] = networks["essid"][i]
-                n["mode"] = networks["mode"][i]
-                n["channel"] = networks["channel"][i]
-                n["frequency"] = float(networks["frequency"][i])
-                n["signal"] = float(networks["signal"][i])
-                n["encryption"] = networks["encryption"][i] == "on"
-                if n["bssid"] not in self.ignore_bssid:
-                  wifis.append(n)
+            n["bssid"] = networks["bssid"][i]
+            n["essid"] = networks["essid"][i]
+            n["mode"] = networks["mode"][i]
+            n["channel"] = networks["channel"][i]
+            n["frequency"] = float(networks["frequency"][i])
+            n["signal"] = float(networks["signal"][i])
+            n["encryption"] = networks["encryption"][i] == "on"
+            if n["bssid"] not in self.ignore_bssid:
+                wifis.append(n)
         return wifis
         
             
-           
+    def getWifiPosition(self, wifis):
+      bssid = []
+      for n in wifis:
+        bssid.append("\"%s\""%n["bssid"])
+      q = "select avg(latitude), avg(longitude) from wifis where bssid in ( %s )"%(','.join(bssid))
            
     def getGPSData(self):
         longitude = self.session.fix.longitude
