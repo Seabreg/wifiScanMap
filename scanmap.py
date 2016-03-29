@@ -248,7 +248,13 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           else:
             key = '<img src=\\"locked.png\\">'
           manufacturer = self.server.app.getManufacturer(i[0])
-          names = "%s<li>%s %s %s</li>"%(names,key, i[1], manufacturer)
+          ssid = i[1]
+          try:
+            ssid = ssid.decode('utf-8').encode('ascii','ignore')
+          except:
+            ssid = 'encoding error'
+            print i[1]
+          names = "%s<li>%s %s %s</li>"%(names,key, ssid, manufacturer)
         name = "%s</ul>"%names
         icon = "marker%s.png"%open_icon
         if count >= 2:
