@@ -179,9 +179,9 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.end_headers()
       networks = self.server.app.getAll()
       html = '''
-      <script type="text/javascript" src="http://www.openlayers.org/api/OpenLayers.js"></script>
-      <script type="text/javascript" src="http://www.openstreetmap.org/openlayers/OpenStreetMap.js"></script>
-      <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
+      <script type="text/javascript" src="js/OpenLayers.js"></script>
+      <script type="text/javascript" src="js/OpenStreetMap.js"></script>
+      <script src="js/jquery-1.11.2.min.js"></script>
       <script>
       var current_gps_position;
       var current_wifi_position;
