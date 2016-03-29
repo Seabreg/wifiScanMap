@@ -253,7 +253,6 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             ssid = ssid.decode('utf-8').encode('ascii','ignore')
           except:
             ssid = 'encoding error'
-            print i[1]
           names = "%s<li>%s %s %s</li>"%(names,key, ssid, manufacturer)
         name = "%s</ul>"%names
         icon = "marker%s.png"%open_icon
@@ -293,7 +292,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
                   strokeColor : "#ffffff",
                   strokeOpacity : 1,
                   strokeWidth : 1,
-                  pointRadius : 4
+                  pointRadius : 8
                   }
               );
               
@@ -305,7 +304,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
                   strokeColor : "#ffffff",
                   strokeOpacity : 1,
                   strokeWidth : 1,
-                  pointRadius : 4
+                  pointRadius : 8
                   }
               );
 
@@ -464,6 +463,28 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       except:
         self.send_response(500)
     
+    def _get_csv(self):
+      #try:
+      self.send_response(200)
+      self.send_header('Content-type','text/html')
+      self.end_headers()
+      networks = self.server.app.getAll()
+      csv="SSID;BSSID;ENCRYPTION;LATITUDE;LONGITUDE;\r\n"
+      for n in networks["networks"]:
+        lat = n[5]
+        lon = n[4]
+        ssid = n[1]
+        bssid = n[0]
+        encryption = n[2]
+        try:
+          ssid = ssid.decode('utf-8').encode('ascii','ignore')
+          csv += "%s;%s;%s;%s;%s;\r\n"%(ssid, bssid, encryption, lat,lon)
+        except:
+          ssid = 'encoding error'
+      self.wfile.write(csv)
+      #except:
+        #self.send_response(500)
+    
     def do_POST(self):
         path,params,args = self._parse_url()
         if ('..' in args) or ('.' in args):
@@ -507,6 +528,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             return self._get_offline()
         elif len(args) == 1 and args[0] == 'kml':
             return self._get_kml()
+        elif len(args) == 1 and args[0] == 'csv':
+            return self._get_csv()
         else:
             return self._get_file(path)
       
@@ -709,8 +732,11 @@ class Application:
                 self.log("wifi", 'No results')
             self.wifiPosition = self.getWifiPosition(wifis)
             self.db.commit()
-          except:
+          except Exception as e:
             self.log("wifi", 'fail')
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(exc_type, fname, exc_tb.tb_lineno)
           if self.args.sleep is not None:
               sleep = int(self.args.sleep)
           else:
