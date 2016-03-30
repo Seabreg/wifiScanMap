@@ -76,6 +76,8 @@ class AirodumpPoller(threading.Thread):
     self.application = app
     self.lock = Lock()
     self.networks = []
+    self.stations = []
+    self.probes = []
     self.running = True #setting the thread running to true
 
   def run(self):
@@ -90,15 +92,17 @@ class AirodumpPoller(threading.Thread):
       os.system("rm wifi-dump*")
       cmd = ['airodump-ng', '-w', prefix,  '--berlin', str(sleep),self.application.interface]
       process = subprocess.Popen(cmd, stderr=FNULL)
-      time.sleep(1)
+      time.sleep(10)
       #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
       while self.running:
         fix = self.application.has_fix()
         lon, lat = self.application.getGPSData()
         wifis = []
+        stations = []
+        probes = []
         f = open("%s-01.csv"%prefix)
         for line in f:
-          fields = line.split(',')
+          fields = line.split(', ')
           if len(fields) >= 13:
             if(fields[0] != 'BSSID'):
               n = {}
@@ -107,7 +111,7 @@ class AirodumpPoller(threading.Thread):
                   n["latitude"] = lat
                   n["longitude"] = lon
                 n["bssid"] = fields[0]
-                n["essid"] = fields[13]
+                n["essid"] = fields[13].replace("\r\n", "")
                 n["mode"] = 'Master'
                 n["channel"] = fields[3]
                 n["frequency"] = -1
@@ -116,14 +120,36 @@ class AirodumpPoller(threading.Thread):
                 if n["bssid"] not in self.application.ignore_bssid:
                   wifis.append(n)
               except Exception as e:
-                self.log("wifi", 'parse fail')
+                self.application.log("wifi", 'parse fail')
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                 print(exc_type, fname, exc_tb.tb_lineno)
                 self.application.log('airodump' , n)
+          elif len(fields) == 7 or len(fields) == 6:
+            try:
+              if(fields[0] != 'Station MAC'):
+                s = {}
+                s['bssid'] = fields[0]
+                s['signal'] = float(fields[3])
+                if fix:
+                  s['latitude'] = lat
+                  s['longitude'] = lon
+                stations.append(s)
+                
+                if len(fields) == 7:
+                  for r in fields[6].split(','):
+                    p = {}
+                    p['bssid'] = fields[0]
+                    p['essid'] = r.replace("\r\n", "")
+                    if p['essid'] != "":
+                      probes.append(p)
+            except:
+              self.application.log("wifi", 'station parse fail')
         f.close()
         with self.lock:
           self.networks = wifis
+          self.stations = stations
+          self.probes = probes
         time.sleep(sleep)
         
   def getNetworks(self):
@@ -698,6 +724,9 @@ class Application:
             (key text, value text)''')
         self.query('''CREATE TABLE gps
             (latitude real, longitude real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        self.query('''CREATE TABLE stations
+            (id integer primary key, bssid  text, latitude real, longitude real, signal real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        self.query('''CREATE TABLE probes (bssid  text, essid text)''')
     
     def log(self, name, value):
         print "%s   %s : %s"%(datetime.datetime.now(), name, value)
@@ -727,12 +756,33 @@ class Application:
                 if self.update(w):
                     updated += 1
             if updated != 0:
-                self.log("updated", updated)
+                self.log("updated wifi", updated)
             self.last_updated = updated
             self.network_count = len(wifis)
-            if self.network_count == 0:
-                self.log("wifi", 'No results')
             self.wifiPosition = self.getWifiPosition(wifis)
+            
+            if self.args.monitor and not USE_SCAPY:
+              try:
+                updated = 0
+                for p in self.airodump.probes:
+                  if self.update_probe(p):
+                    updated += 1
+                  if updated != 0:
+                    self.log("updated probes", updated)
+              except:
+                self.log("wifi", "probes insert fails")
+              
+              try:
+                updated = 0
+                for s in self.airodump.stations:
+                  if self.update_station(s):
+                    updated += 1
+                
+                if updated != 0:
+                    self.log("updated stations", updated)
+              except:
+                self.log("wifi", "stations insert fails")
+            
             self.db.commit()
           except Exception as e:
             self.log("wifi", 'fail')
@@ -779,6 +829,26 @@ class Application:
             except:
               print "sqlError: %s"%q
         return False
+    
+    def update_probe(self, probe):
+      q = '''select * from probes where bssid="%s" and essid="%s"'''%(probe["bssid"], probe["essid"])
+      res = self.fetchone(q)
+      if res is None:
+        q = '''insert into probes (bssid, essid) values ("%s", "%s")'''%(probe["bssid"], probe["essid"])
+        self.query(q)
+        return True
+      return False
+
+    def update_station(self, station):
+      if not station.has_key('latitude'):
+        return False
+      q = '''select * from stations where bssid="%s" and latitude="%s" and longitude="%s"'''%(station["bssid"], station["latitude"], station["longitude"])
+      res = self.fetchone(q)
+      if res is None:
+        q = '''insert into stations (id, bssid, latitude, longitude, signal) values (NULL, "%s", "%s", "%s", "%s")'''%(station["bssid"], station["latitude"], station["longitude"], station["signal"])
+        self.query(q)
+        return True
+      return False
     
     def loadManufacturers(self):
       try:
