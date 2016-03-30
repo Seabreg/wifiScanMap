@@ -18,6 +18,7 @@ from SocketServer import ThreadingMixIn
 from threading import Thread
 import json
 import urllib2
+import ssl
 
 import datetime
 
@@ -114,7 +115,11 @@ class AirodumpPoller(threading.Thread):
                 n["encryption"] = fields[7] != "OPN"
                 if n["bssid"] not in self.application.ignore_bssid:
                   wifis.append(n)
-              except:
+              except Exception as e:
+                self.log("wifi", 'parse fail')
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(exc_type, fname, exc_tb.tb_lineno)
                 self.application.log('airodump' , n)
         f.close()
         with self.lock:
@@ -140,7 +145,9 @@ class Synchronizer(threading.Thread):
     while self.running:
       
       try:
-        raw = urllib2.urlopen("%s/status.json"%self.base)
+        # This restores the same behavior as before.
+        context = ssl._create_unverified_context()
+        raw = urllib2.urlopen("%s/status.json"%self.base, context=context)
         date = json.loads(raw.read())["sync"][0]
         date = date.split('.')[0]
         
@@ -149,7 +156,7 @@ class Synchronizer(threading.Thread):
         
         req = urllib2.Request('%s/upload.json'%self.base)
         req.add_header('Content-Type', 'application/json')
-        response = urllib2.urlopen(req, json.dumps(data))
+        response = urllib2.urlopen(req, json.dumps(data), context=context)
         print "sync"
       except:
         print "Sync unavailable"
@@ -248,11 +255,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           else:
             key = '<img src=\\"locked.png\\">'
           manufacturer = self.server.app.getManufacturer(i[0])
-          ssid = i[1]
-          try:
-            ssid = ssid.decode('utf-8').encode('ascii','ignore')
-          except:
-            ssid = 'encoding error'
+          ssid = unicode(i[1]).encode('utf8')
           names = "%s<li>%s %s %s</li>"%(names,key, ssid, manufacturer)
         name = "%s</ul>"%names
         icon = "marker%s.png"%open_icon
@@ -443,6 +446,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         html += '<li>%s : %s</li>'%(n[0],n[1])
       html += '</ul>'
       html += '</html>'
+      html = unicode(html).encode('utf8')
       self.wfile.write(html)
       
     def _get_kml(self):
@@ -459,7 +463,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           lon = n[4]
           name = n[1]
           kml.newpoint(name=name, coords=[(lon,lat)])
-        self.wfile.write(kml.kml())
+          kml_str = unicode(kml.kml()).encode('utf8')
+        self.wfile.write(kml_str)
       except:
         self.send_response(500)
     
@@ -476,11 +481,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         ssid = n[1]
         bssid = n[0]
         encryption = n[2]
-        try:
-          ssid = ssid.decode('utf-8').encode('ascii','ignore')
-          csv += "%s;%s;%s;%s;%s;\r\n"%(ssid, bssid, encryption, lat,lon)
-        except:
-          ssid = 'encoding error'
+        
+      csv = unicode(csv).encode('utf8')
       self.wfile.write(csv)
       #except:
         #self.send_response(500)
@@ -734,9 +736,9 @@ class Application:
             self.db.commit()
           except Exception as e:
             self.log("wifi", 'fail')
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                print(exc_type, fname, exc_tb.tb_lineno)
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
           if self.args.sleep is not None:
               sleep = int(self.args.sleep)
           else:
