@@ -753,8 +753,13 @@ class Application:
             wifis = self.scanForWifiNetworks()
             updated = 0
             for w in wifis:
+              try:
                 if self.update(w):
                     updated += 1
+              except:
+                self.log("wifi", "insert fails")
+                print w
+                
             if updated != 0:
                 self.log("updated wifi", updated)
             self.last_updated = updated
