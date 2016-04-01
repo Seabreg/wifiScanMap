@@ -19,6 +19,7 @@ from threading import Thread
 import json
 import urllib2
 import ssl
+import shutil
 
 import datetime
 
@@ -94,13 +95,15 @@ class AirodumpPoller(threading.Thread):
       process = subprocess.Popen(cmd, stderr=FNULL)
       time.sleep(10)
       #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
+      error_id = 0
       while self.running:
         fix = self.application.has_fix()
         lon, lat = self.application.getGPSData()
         wifis = []
         stations = []
         probes = []
-        f = open("%s-01.csv"%prefix)
+        csv_path = "%s-01.csv"%prefix
+        f = open(csv_path)
         for line in f:
           fields = line.split(', ')
           if len(fields) >= 13:
@@ -129,6 +132,8 @@ class AirodumpPoller(threading.Thread):
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                 print(exc_type, fname, exc_tb.tb_lineno)
                 self.application.log('airodump' , n)
+                shutil.copyfile(csv_path, "/tmp/wifimap-%s.csv"%error_id)
+                error_id += 1
           elif len(fields) == 7 or len(fields) == 6:
             try:
               if(fields[0] != 'Station MAC'):
