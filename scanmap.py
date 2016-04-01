@@ -412,6 +412,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         status['position']['wifi']['longitude'] = wifiPos[1]
       
       self.send_response(200)
+      self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       # push data
       self.wfile.write(json.dumps(status))
@@ -494,6 +495,57 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       except:
         self.send_response(500)
     
+    def _get_wifis(self):
+      self.send_response(200)
+      self.send_header('Content-type','text/html')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      networks = self.server.app.getAll()
+      data = []
+      for n in networks["networks"]:
+        d = {}
+        d["latitude"] = n[5]
+        d["longitude"] = n[4]
+        d["essid"] = n[1]
+        d["bssid"] = n[0]
+        d["encryption"] = n[2]
+        data.append(d)
+      
+      self.wfile.write(json.dumps(data))
+    
+    def _get_stations(self):
+      self.send_response(200)
+      self.send_header('Content-type','text/html')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      stations = self.server.app.getAllStations()
+      data = []
+      for n in stations["stations"]:
+        s = {}
+        s["latitude"] = n[2]
+        s["longitude"] = n[3]
+        s["bssid"] = n[1]
+        s["signal"] = n[4]
+        s["date"] = n[5]
+        data.append(s)
+      
+      self.wfile.write(json.dumps(data))
+    
+    def _get_probes(self):
+      self.send_response(200)
+      self.send_header('Content-type','text/html')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      probes = self.server.app.getAllProbes(True)
+      data = []
+      for n in probes["probes"]:
+        s = {}
+        s["essid"] = n[0]
+        s["count"] = n[1]
+        data.append(s)
+      
+      self.wfile.write(json.dumps(data))
+    
     def _get_csv(self):
       #try:
       self.send_response(200)
@@ -558,6 +610,12 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             return self._get_kml()
         elif len(args) == 1 and args[0] == 'csv':
             return self._get_csv()
+        elif len(args) == 1 and args[0] == 'wifis.json':
+            return self._get_wifis()
+        elif len(args) == 1 and args[0] == 'stations.json':
+            return self._get_stations()
+        elif len(args) == 1 and args[0] == 'probes.json':
+            return self._get_probes()
         else:
             return self._get_file(path)
       
@@ -693,6 +751,31 @@ class Application:
     def getLastUpdate(self):
         q = '''select date from wifis order by date desc limit 1'''
         return self.fetchone(q)
+    
+    def getStationsPerDay(self, limit = 0):
+      limit_str = ''
+      if limit_str != 0:
+        limit_str = 'LIMIT %s'%limit
+      q='''select bssid, date(date), count(distinct date(date)) from stations group by bssid order by count(distinct date(date)) DESC, date %s'''%limit
+      return self.fetchall(q)
+    
+    def getAllStations(self, date = None):
+      stations = {}
+      date_where = ''
+      if date is not None:
+        date_where = 'where date > "%s"'%date
+      q = 'select * from stations %s order by latitude, longitude'%date_where
+      stations["stations"] = self.fetchall(q)
+      return stations
+    
+    def getAllProbes(self, distinct = False):
+      probes = {}
+      if not distinct:
+        q = 'select * from probes order by essid'
+      else:
+        q = 'select essid, count(*) from probes group by essid order by count(*) desc'
+      probes["probes"] = self.fetchall(q)
+      return probes
     
     def getAll(self, date = None):
         wifis = {}
