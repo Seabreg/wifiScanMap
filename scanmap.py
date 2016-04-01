@@ -400,6 +400,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         }
       }
       
+      status["current"] = self.server.app.getCurrent()
+      
       if gps_status:
           status['position']['gps']['latitude'] = self.server.app.session.fix.latitude
           status['position']['gps']['longitude'] = self.server.app.session.fix.longitude
@@ -616,6 +618,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             return self._get_stations()
         elif len(args) == 1 and args[0] == 'probes.json':
             return self._get_probes()
+        elif len(args) == 1 and args[0] == 'current.json':
+            return self._get_current()
         else:
             return self._get_file(path)
       
@@ -797,6 +801,16 @@ class Application:
         wifis["stat"] = self.getStat()
         return wifis
     
+    def getCurrent(self):
+      wifis = self.scanForWifiNetworks()
+      probes = []
+      if self.args.monitor and not USE_SCAPY:
+        probes = self.airodump.probes
+      data = {}
+      data['wifis'] = wifis
+      data['probes'] = probes
+      return data
+    
     def createDatabase(self):
         print "initiallize db"
         self.query('''CREATE TABLE wifis
@@ -824,6 +838,11 @@ class Application:
       return self.session.fix.mode > 1
     
     def run(self):
+        if self.interface == '':
+          self.log("wifi", "no interface")
+          while not self.stopped:
+            time.sleep(1)
+          return
         if self.args.monitor:
           if USE_SCAPY:
             sniff(iface=self.interface, prn = self.packet_handler)
@@ -1033,6 +1052,8 @@ class Application:
       q = "select avg(latitude), avg(longitude) from wifis where bssid in ( %s )"%(','.join(bssid))
       res = self.fetchone(q)
       if res is not None:
+        if res[0] is None:
+          return None
         return (res[0], res[1])
            
     def getGPSData(self):
