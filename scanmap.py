@@ -116,6 +116,10 @@ class AirodumpPoller(threading.Thread):
                 n["channel"] = fields[3]
                 n["frequency"] = -1
                 n["signal"] = float(fields[8])
+                
+                if(n["signal"] >= -1):
+                  n["signal"] = -100
+                
                 n["encryption"] = fields[5].strip() != "OPN"
                 if n["bssid"] not in self.application.ignore_bssid:
                   wifis.append(n)
@@ -830,8 +834,6 @@ class Application:
         print "initiallize db"
         self.query('''CREATE TABLE wifis
             (bssid text, essid text, encryption bool, signal real, longitude real, latitude real, frequency real, channel int, mode text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-        self.query('''CREATE TABLE logs
-            (date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, name text, value text)''')
         self.query('''CREATE TABLE config
             (key text, value text)''')
         self.query('''CREATE TABLE gps
@@ -842,8 +844,6 @@ class Application:
     
     def log(self, name, value):
         print "%s   %s : %s"%(datetime.datetime.now(), name, value)
-        q = 'insert into logs (name, value) values ("%s", "%s")'%(name, value)
-        self.query(q)
     
     def stop(self):
         self.stopped = True
