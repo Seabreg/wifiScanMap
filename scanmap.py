@@ -116,7 +116,7 @@ class AirodumpPoller(threading.Thread):
                 n["channel"] = fields[3]
                 n["frequency"] = -1
                 n["signal"] = float(fields[8])
-                n["encryption"] = fields[7] != "OPN"
+                n["encryption"] = fields[5].strip() != "OPN"
                 if n["bssid"] not in self.application.ignore_bssid:
                   wifis.append(n)
               except Exception as e:
