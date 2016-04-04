@@ -695,9 +695,10 @@ class Application:
           self.log("App", "No wifi interface")
         
         if self.args.monitor:
-          cmd = ['airmon-ng', 'start' ,self.interface]
-          p = subprocess.Popen(cmd)
-          p.wait()
+          if self.interface != 'mon0':
+            cmd = ['airmon-ng', 'start' ,self.interface]
+            p = subprocess.Popen(cmd)
+            p.wait()
           self.interface = 'mon0'
                 
         
@@ -758,6 +759,17 @@ class Application:
     def getLastUpdate(self):
         q = '''select date from wifis order by date desc limit 1'''
         return self.fetchone(q)
+    
+    def getWifisFromEssid(self, essid):
+      where = ''
+      if isinstance(essid, collections.Sequence):
+        where = 'essid in ("%s")'%','.join(essid)
+      else:
+        where = 'essid="%s"'%essid 
+      
+      q='select * from wifis where %s'%where
+      return self.fetchall(q)
+      
     
     def getStationsPerDay(self, limit = 0):
       limit_str = ''
