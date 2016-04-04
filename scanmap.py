@@ -131,6 +131,7 @@ class AirodumpPoller(threading.Thread):
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                 print(exc_type, fname, exc_tb.tb_lineno)
+                self.application.log('airodump' , fields)
                 self.application.log('airodump' , n)
                 shutil.copyfile(csv_path, "/tmp/wifimap-%s.csv"%error_id)
                 error_id += 1
@@ -149,6 +150,7 @@ class AirodumpPoller(threading.Thread):
                   for r in fields[6].split(','):
                     p = {}
                     p['bssid'] = fields[0]
+                    p['signal'] = s['signal']
                     p['essid'] = r.replace("\r\n", "")
                     if p['essid'] != "":
                       probes.append(p)
