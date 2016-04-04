@@ -192,7 +192,10 @@ class Synchronizer(threading.Thread):
       self.running = False
       
 class WebuiHTTPHandler(BaseHTTPRequestHandler):
-        
+    
+    def log_message(self, format, *args):
+      pass
+    
     def _parse_url(self):
         # parse URL
         path = self.path.strip('/')
