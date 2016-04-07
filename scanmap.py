@@ -80,18 +80,26 @@ class AirodumpPoller(threading.Thread):
     self.stations = []
     self.probes = []
     self.running = True #setting the thread running to true
+    
+    if self.application.args.sleep is not None:
+      self.sleep = int(self.application.args.sleep)
+    else:
+      self.sleep = 1
 
+  def date_from_str(self, _in):
+    return datetime.datetime.strptime(_in.strip(), '%Y-%m-%d %H:%M:%S')
+  
+  def is_too_old(self, date):
+    diff = self.date_from_str(date) - datetime.datetime.now()
+    return diff.seconds > self.sleep
+  
   def run(self):
     while self.running:
-      if self.application.args.sleep is not None:
-        sleep = int(self.application.args.sleep)
-      else:
-        sleep = 1
             
       FNULL = open(os.devnull, 'w')
       prefix= 'wifi-dump'
       os.system("rm wifi-dump*")
-      cmd = ['airodump-ng', '-w', prefix,  '--berlin', str(sleep),self.application.interface]
+      cmd = ['airodump-ng', '-w', prefix,  '--berlin', str(self.sleep), self.application.interface]
       process = subprocess.Popen(cmd, stderr=FNULL)
       time.sleep(10)
       #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
@@ -110,6 +118,8 @@ class AirodumpPoller(threading.Thread):
             if(fields[0] != 'BSSID'):
               n = {}
               try:
+                if self.is_too_old(fields[2]):
+                  next
                 if fix:
                   n["latitude"] = lat
                   n["longitude"] = lon
@@ -139,6 +149,8 @@ class AirodumpPoller(threading.Thread):
             try:
               if(fields[0] != 'Station MAC'):
                 s = {}
+                if self.is_too_old(fields[2]):
+                  next
                 s['bssid'] = fields[0]
                 s['signal'] = float(fields[3])
                 if fix:
@@ -161,7 +173,7 @@ class AirodumpPoller(threading.Thread):
           self.networks = wifis
           self.stations = stations
           self.probes = probes
-        time.sleep(sleep)
+        time.sleep(self.sleep/2)
         
   def getNetworks(self):
     with self.lock:
