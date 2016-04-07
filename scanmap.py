@@ -24,6 +24,12 @@ import shutil
 
 import datetime
 
+try:
+  import RPi.GPIO as GPIO
+  GPIO.setmode(GPIO.BCM) 
+except:
+  print "No gpio"
+
 USE_SCAPY=False
 
 if(USE_SCAPY):
@@ -52,6 +58,8 @@ class GpsPoller(threading.Thread):
     self.application = app
     self.date = False
     self.running = True #setting the thread running to true
+    self.gpio = 17
+    GPIO.setup(self.gpio, GPIO.OUT, initial=GPIO.LOW)
 
   def run(self):
     while self.running:
@@ -65,10 +73,22 @@ class GpsPoller(threading.Thread):
         gpstime = self.gpsd.utc[0:4] + self.gpsd.utc[5:7] + self.gpsd.utc[8:10] + ' ' + str(tzhour) + self.gpsd.utc[13:19]
         print 'Setting system time to GPS time...'
         os.system('sudo date --set="%s"' % gpstime)
-      if self.gpsd.fix.mode > 1:
+      if self.has_fix:
+        try:
+          GPIO.output(self.gpio, GPIO.HIGH)
+        except:
+          pass
         q = 'insert into gps (latitude, longitude) values ("%s", "%s")'%(self.gpsd.fix.latitude, self.gpsd.fix.longitude)
         self.application.query(q)
+      else:
+        try:
+          GPIO.output(self.gpio, GPIO.LOW)
+        except:
+          pass
 
+  def has_fix(self):
+    return self.gpsd.fix.mode > 1
+  
   def stop(self):
       self.running = False
     
@@ -916,7 +936,7 @@ class Application (threading.Thread):
         self.airodump.join()
     
     def has_fix(self):
-      return self.session.fix.mode > 1
+      return self.gpspoller.has_fix()
     
     def run(self):
         if self.interface == '':
