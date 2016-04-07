@@ -513,7 +513,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
     
     def _get_wifis(self):
       self.send_response(200)
-      self.send_header('Content-type','text/html')
+      self.send_header('Content-type','application/json')
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       networks = self.server.app.getAll()
@@ -529,27 +529,17 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       
       self.wfile.write(json.dumps(data))
     
-    def _get_stations(self):
+    def _get_stations(self, search = None):
       self.send_response(200)
-      self.send_header('Content-type','text/html')
+      self.send_header('Content-type','application/json')
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
-      stations = self.server.app.getAllStations()
-      data = []
-      for n in stations["stations"]:
-        s = {}
-        s["latitude"] = n[2]
-        s["longitude"] = n[3]
-        s["bssid"] = n[1]
-        s["signal"] = n[4]
-        s["date"] = n[5]
-        data.append(s)
-      
+      data = self.server.app.getAllStations(search)
       self.wfile.write(json.dumps(data))
     
     def _get_probes(self):
       self.send_response(200)
-      self.send_header('Content-type','text/html')
+      self.send_header('Content-type','application/json')
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       probes = self.server.app.getAllProbes(True)
@@ -575,7 +565,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         ssid = n[1]
         bssid = n[0]
         encryption = n[2]
-        
+        csv += '"%s"; "%s"; "%s"; %s; %s\r\n'%(ssid, bssid, encryption, lat, lon)
       csv = unicode(csv).encode('utf8')
       self.wfile.write(csv)
       #except:
@@ -629,7 +619,9 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         elif len(args) == 1 and args[0] == 'wifis.json':
             return self._get_wifis()
         elif len(args) == 1 and args[0] == 'stations.json':
-            return self._get_stations()
+            if params is not None:
+              params = params.split('search=')[1]
+            return self._get_stations(params)
         elif len(args) == 1 and args[0] == 'probes.json':
             return self._get_probes()
         elif len(args) == 1 and args[0] == 'current.json':
@@ -789,13 +781,27 @@ class Application:
       q='''select bssid, date(date), count(distinct date(date)) from stations group by bssid order by count(distinct date(date)) DESC, date %s'''%limit
       return self.fetchall(q)
     
-    def getAllStations(self, date = None):
+    def getAllStations(self, search = None):
       stations = {}
-      date_where = ''
-      if date is not None:
-        date_where = 'where date > "%s"'%date
-      q = 'select * from stations %s order by latitude, longitude'%date_where
-      stations["stations"] = self.fetchall(q)
+      searchs = []
+      search_where = ''
+      if search is not None:
+        for s in search.split(','):
+          searchs.append( '"%s"'%s.strip())
+        search_where = 'where bssid in (%s)'%','.join(searchs)
+      q = "select distinct (bssid) from stations %s"%search_where
+      for s in self.fetchall(q):
+        bssid = s[0]
+        if not stations.has_key(bssid):
+          stations[bssid] = []
+        q = 'select * from stations where bssid="%s"'%bssid
+        for r in self.fetchall(q):
+          station = {}
+          station["latitude"] = r[2]
+          station["longitude"] = r[3]
+          station["signal"] = r[4]
+          station["date"] = r[5]
+          stations[bssid].append(station)
       return stations
     
     def getAllProbes(self, distinct = False):
