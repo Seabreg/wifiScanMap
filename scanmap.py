@@ -660,8 +660,6 @@ class Application:
         self.lock = Lock()
         self.stopped = False
         self.session = gps(mode=WATCH_ENABLE)
-        self.gpspoller = GpsPoller(self.session, self)
-        self.gpspoller.start()
         self.ignore_bssid = []
         self.last_fix = False
         self.last_updated = 0
@@ -681,6 +679,9 @@ class Application:
             self.query('''select * from wifis''')
         except:
             self.createDatabase()
+        
+        self.gpspoller = GpsPoller(self.session, self)
+        self.gpspoller.start()
         
         for b in self.getConfig('bssid').split(','):
           self.ignore_bssid.append(b)
