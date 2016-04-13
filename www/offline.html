@@ -1,0 +1,97 @@
+<head>
+  <script src="js/jquery-1.11.2.min.js"></script>
+  <style>
+    #currentProbesContainer, #currentWifisContainer, #currentStationsContainer {
+      float:left;
+      min-width: 20%;
+    }
+  </style>
+</head>
+<h1>Offline</h1>
+<div id="position">
+  <div>Gps: <span id="gpsPos"></span></div>
+  <div>Wifi: <span id="wifiPos"></span></div>
+</div>
+<div id="stat">
+Total wifis: <span id="stat_total"></span><br/>
+Total open Wifis: <span id="stat_open"></span>
+</div>
+<div id="current">
+  <div id="currentWifisContainer" >
+    <h2>Wifis</h2>
+    <ul id="currentWifis">
+    </ul>
+  </div>
+  <div id="currentProbesContainer" >
+    <h2>Probes</h2>
+    <ul id="currentProbes">
+    </ul>
+  </div>
+  <div id="currentStationsContainer" >
+    <h2>Stations</h2>
+    <ul id="currentStations">
+    </ul>
+  </div>
+</div>
+
+<script>
+          function update(){
+          $.getJSON('/status.json').done( function(data){
+              $("#stat_total").html(data["stat"]["total"]);
+              $("#stat_open").html(data["stat"]["open_count"]);
+              if(data['position']['gps']['fix'])
+              {
+                lat = data['position']['gps']['latitude'];
+                lon = data['position']['gps']['longitude'];
+                $("#gpsPos").html('<a href="http://www.openstreetmap.org/search?query='+lat+'%2C'+lon+'#map=18/45.00000/0.00000" >'+lat + ', '+lon+ "</a> ( "+data['position']['gps']['accuracy']+"m)");
+              }
+              else
+              {
+                $("#gpsPos").html("No fix");
+              }
+              if(data['position']['wifi']['fix'])
+              {
+                lat = data['position']['wifi']['latitude'];
+                lon = data['position']['wifi']['longitude'];
+                $("#wifiPos").html('<a href="http://www.openstreetmap.org/search?query='+lat+'%2C'+lon+'#map=18/45.00000/0.00000" >'+lat + ', '+lon+ "</a>");
+              
+              }
+              else
+              {
+                $("#wifiPos").html("No fix");
+              }
+              
+              html = "";
+              for(w in data["current"]["wifis"])
+              {
+                img = "";
+                if(data["current"]["wifis"][w]["encryption"])
+                {
+                  img = '<img src="locked.png">';
+                }
+                html += "<li>"+img+"&nbsp;"+data["current"]["wifis"][w]["essid"] + ' <b>' + data["current"]["wifis"][w]["signal"] +"</b></li>";
+              }
+              $("#currentWifis").html(html);
+              
+              html = "";
+              for(w in data["current"]["probes"])
+              {
+                html += "<li>"+data["current"]["probes"][w]["essid"] + ' (' + data["current"]["probes"][w]["manufacturer"] + ') <b>' + data["current"]["probes"][w]["signal"] +"</b></li>";
+              }
+              $("#currentProbes").html(html);
+              
+              html = "";
+              for(w in data["current"]["stations"])
+              {
+                html += "<li>"+data["current"]["stations"][w]["bssid"] + " " + data["current"]["stations"][w]["manufacturer"] + ' <b>' + data["current"]["stations"][w]["signal"] +"</b></li>";
+              }
+              $("#currentStations").html(html);
+              
+          }) .fail(function(d, textStatus, error) {
+      console.error("getJSON failed, status: " + textStatus + ", error: "+error)
+});
+          setTimeout(update,1000);
+          }
+          
+          setTimeout(update,1000);
+</script>

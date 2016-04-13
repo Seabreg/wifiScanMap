@@ -26,6 +26,7 @@ import datetime
 
 #meters
 min_gpsd_accuracy = 30
+default_airodump_age = 5
 
 try:
   import RPi.GPIO as GPIO
@@ -161,13 +162,14 @@ class AirodumpPoller(threading.Thread):
                 n["mode"] = 'Master'
                 n["channel"] = fields[3]
                 n["frequency"] = -1
+                n["manufacturer"] = self.application.getManufacturer(n["bssid"])
                 n["signal"] = float(fields[8])
                 
                 if(n["signal"] >= -1):
                   n["signal"] = -100
                 
                 n["encryption"] = fields[5].strip() != "OPN"
-                if not self.is_too_old(fields[2], 5):
+                if not self.is_too_old(fields[2], default_airodump_age):
                   if n["bssid"] not in self.application.ignore_bssid:
                     wifis.append(n)
               except Exception as e:
@@ -186,11 +188,12 @@ class AirodumpPoller(threading.Thread):
                 s['bssid'] = fields[0]
                 s['last_seen'] = fields[2]
                 s['signal'] = float(fields[3])
+                s["manufacturer"] = self.application.getManufacturer(s["bssid"])
                 if fix:
                   s['latitude'] = lat
                   s['longitude'] = lon
                 
-                if not self.is_too_old(fields[2], 5):
+                if not self.is_too_old(fields[2], default_airodump_age):
                   stations.append(s)
                 
                 if len(fields) == 7:
@@ -198,9 +201,11 @@ class AirodumpPoller(threading.Thread):
                     p = {}
                     p['bssid'] = fields[0]
                     p['signal'] = s['signal']
+                    p['manufacturer'] = s["manufacturer"]
                     p['essid'] = r.replace("\r\n", "")
                     if p['essid'] != "":
-                      probes.append(p)
+                      if not self.is_too_old(s['last_seen'], default_airodump_age):
+                        probes.append(p)
             except:
               self.application.log("wifi", 'station parse fail')
         f.close()
@@ -469,11 +474,13 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         }
       }
       
+      status["stat"] = self.server.app.getStat()
       status["current"] = self.server.app.getCurrent()
       
       if gps_status:
           status['position']['gps']['latitude'] = self.server.app.session.fix.latitude
           status['position']['gps']['longitude'] = self.server.app.session.fix.longitude
+          status['position']['gps']['accuracy'] = self.server.app.gpspoller.getPrecision()
       
       status['sync'] = self.server.app.getLastUpdate()
       
@@ -503,50 +510,6 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
               self.wfile.write(data)
           except IOError as e:
                 self.send_500(str(e))
-    
-    def _get_offline(self):
-      self.send_response(200)
-      self.send_header('Content-type','text/html')
-      self.end_headers()
-      networks = self.server.app.getLast()
-      
-      html = '<html>'
-      if self.server.app.has_fix(False):
-        lon, lat = self.server.app.getGPSData()
-        accuracy = self.server.app.gpspoller.getPrecision()
-        html += 'Current gps position: <a href="http://www.openstreetmap.org/search?query=%s%%2C%s#map=18/45.00000/0.00000" > %s, %s</a> ( accuracy: %s ) <br/>'%(lat, lon, lat, lon, accuracy)
-      else:
-        html += 'Current gps position: Unknown<br/>'
-      wifiPos = self.server.app.wifiPosition
-      if wifiPos is not None:
-        html += 'Current wifi position: <a href="http://www.openstreetmap.org/search?query=%s%%2C%s#map=18/45.00000/0.00000" > %s, %s</a> <br/>'%(wifiPos[0], wifiPos[1], wifiPos[0], wifiPos[1])
-      else:
-        html += 'Current wifi position: Unknown<br/>'
-      html += 'Current wifi scan: %s<br/>'%self.server.app.network_count
-      html += 'Last update: %s<br/>'%self.server.app.last_updated
-      
-      html += '<hr/><ul>'
-      for n in networks['networks']:
-        name = n[1]
-        date = n[9]
-        key = ''
-        if n[2]:
-          key = '<img src="locked.png">'
-        manufacturer = self.server.app.getManufacturer(n[0])
-        if manufacturer != '':
-          manufacturer = '%s<br/>'%manufacturer
-        html += '<li>%s <b>%s</b> <br/>%s%s</li>'%(key, name, manufacturer, date)
-        
-      html += '</ul><hr/><h2>Stats</h2>'
-      html += 'Total : %s<br/>'%networks['stat']['total']
-      html += 'Total open : %s</br>'%networks['stat']['open_count']
-      html += '<ul>'
-      for n in networks['stat']['best']:
-        html += '<li>%s : %s</li>'%(n[0],n[1])
-      html += '</ul>'
-      html += '</html>'
-      html = unicode(html).encode('utf8')
-      self.wfile.write(html)
       
     def _get_kml(self):
       try:
@@ -692,8 +655,6 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           key = params.split('=')[0]
           value = params.split('=')[1]
           return self.setParam(key,value)
-        elif len(args) == 1 and args[0] == 'offline':
-            return self._get_offline()
         elif len(args) == 1 and args[0] == 'kml':
             return self._get_kml()
         elif len(args) == 1 and args[0] == 'csv':
@@ -932,11 +893,15 @@ class Application (threading.Thread):
     def getCurrent(self):
       wifis = self.scanForWifiNetworks()
       probes = []
+      stations = []
+      
       if self.args.monitor and not USE_SCAPY:
         probes = self.airodump.probes
+        stations = self.airodump.stations
       data = {}
       data['wifis'] = wifis
       data['probes'] = probes
+      data['stations'] = stations
       return data
     
     def createDatabase(self):
