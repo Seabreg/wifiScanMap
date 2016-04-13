@@ -24,6 +24,9 @@ import shutil
 
 import datetime
 
+#meters
+min_gpsd_accuracy = 30
+
 try:
   import RPi.GPIO as GPIO
   GPIO.setmode(GPIO.BCM) 
@@ -44,6 +47,7 @@ def parse_args():
     parser.add_argument("-s", "--sleep", help="wifi interface")  
     parser.add_argument("-d", "--database", help="wifi database")
     parser.add_argument('-w', '--www', help='www port')
+    parser.add_argument('-a', '--accuracy', help='minimum accuracy')
     parser.add_argument('-u', '--synchro', help='synchro uri ie http://test.com:8686')
     parser.add_argument('-e', '--enable', action='store_true', help='enable db synchro through json')
     parser.add_argument('-m', '--monitor', action='store_true', help='use monitor mode instead of iwlist')
@@ -59,6 +63,9 @@ class GpsPoller(threading.Thread):
     self.date = False
     self.running = True #setting the thread running to true
     self.gpio = 17
+    self.epx = 100
+    self.epy = 100
+    
     GPIO.setup(self.gpio, GPIO.OUT, initial=GPIO.LOW)
 
   def run(self):
@@ -74,6 +81,8 @@ class GpsPoller(threading.Thread):
         print 'Setting system time to GPS time...'
         os.system('sudo date --set="%s"' % gpstime)
       if self.has_fix:
+        self.epx = self.gpsd.fix.epx
+        self.epy = self.gpsd.fix.epy
         try:
           GPIO.output(self.gpio, GPIO.HIGH)
         except:
@@ -85,9 +94,14 @@ class GpsPoller(threading.Thread):
           GPIO.output(self.gpio, GPIO.LOW)
         except:
           pass
+  def getPrecision(self):
+    return max(self.epx, self.epy)
 
-  def has_fix(self):
-    return self.gpsd.fix.mode > 1
+  def has_fix(self, accurate = True):
+    fix = self.gpsd.fix.mode > 1
+    if( accurate ):
+      fix = fix and self.epx < self.application.args.accuracy and self.epy < self.application.args.accuracy
+    return fix
   
   def stop(self):
       self.running = False
@@ -110,9 +124,9 @@ class AirodumpPoller(threading.Thread):
   def date_from_str(self, _in):
     return datetime.datetime.strptime(_in.strip(), '%Y-%m-%d %H:%M:%S')
   
-  def is_too_old(self, date):
-    diff = self.date_from_str(date) - datetime.datetime.now()
-    return diff.seconds > self.sleep
+  def is_too_old(self, date, sleep):
+    diff = datetime.datetime.now() - self.date_from_str(date)
+    return diff.total_seconds() > sleep
   
   def run(self):
     while self.running:
@@ -139,8 +153,6 @@ class AirodumpPoller(threading.Thread):
             if(fields[0] != 'BSSID'):
               n = {}
               try:
-                if self.is_too_old(fields[2]):
-                  next
                 if fix:
                   n["latitude"] = lat
                   n["longitude"] = lon
@@ -155,8 +167,9 @@ class AirodumpPoller(threading.Thread):
                   n["signal"] = -100
                 
                 n["encryption"] = fields[5].strip() != "OPN"
-                if n["bssid"] not in self.application.ignore_bssid:
-                  wifis.append(n)
+                if not self.is_too_old(fields[2], 5):
+                  if n["bssid"] not in self.application.ignore_bssid:
+                    wifis.append(n)
               except Exception as e:
                 self.application.log("wifi", 'parse fail')
                 exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -170,14 +183,15 @@ class AirodumpPoller(threading.Thread):
             try:
               if(fields[0] != 'Station MAC'):
                 s = {}
-                if self.is_too_old(fields[2]):
-                  next
                 s['bssid'] = fields[0]
+                s['last_seen'] = fields[2]
                 s['signal'] = float(fields[3])
                 if fix:
                   s['latitude'] = lat
                   s['longitude'] = lon
-                stations.append(s)
+                
+                if not self.is_too_old(fields[2], 5):
+                  stations.append(s)
                 
                 if len(fields) == 7:
                   for r in fields[6].split(','):
@@ -441,7 +455,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.wfile.write(html)
     
     def _get_status(self):
-      gps_status = self.server.app.has_fix()
+      gps_status = self.server.app.has_fix(True)
       wifi_status = self.server.app.wifiPosition is not None
       status = {
       'wifi': {'updated':self.server.app.last_updated},
@@ -497,9 +511,10 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       networks = self.server.app.getLast()
       
       html = '<html>'
-      if self.server.app.has_fix():
+      if self.server.app.has_fix(False):
         lon, lat = self.server.app.getGPSData()
-        html += 'Current gps position: <a href="http://www.openstreetmap.org/search?query=%s%%2C%s#map=18/45.00000/0.00000" > %s, %s</a> <br/>'%(lat, lon, lat, lon)
+        accuracy = self.server.app.gpspoller.getPrecision()
+        html += 'Current gps position: <a href="http://www.openstreetmap.org/search?query=%s%%2C%s#map=18/45.00000/0.00000" > %s, %s</a> ( accuracy: %s ) <br/>'%(lat, lon, lat, lon, accuracy)
       else:
         html += 'Current gps position: Unknown<br/>'
       wifiPos = self.server.app.wifiPosition
@@ -612,6 +627,14 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       #except:
         #self.send_response(500)
     
+    def setParam(self, key,value):
+      if key == 'minAccuracy':
+        self.send_response(200)
+        self.send_header('Content-type','text/html')
+        self.end_headers()
+        self.server.app.args.accuracy = float(value)
+        self.wfile.write(json.dumps('ok'))
+    
     def do_POST(self):
         path,params,args = self._parse_url()
         if ('..' in args) or ('.' in args):
@@ -665,6 +688,10 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             return self._get_index()
         elif len(args) == 1 and args[0] == 'status.json':
             return self._get_status()
+        elif len(args) == 1 and args[0] == 'set':
+          key = params.split('=')[0]
+          value = params.split('=')[1]
+          return self.setParam(key,value)
         elif len(args) == 1 and args[0] == 'offline':
             return self._get_offline()
         elif len(args) == 1 and args[0] == 'kml':
@@ -714,7 +741,10 @@ class Application (threading.Thread):
         self.interface = ''
         self.airodump = None
         self.wifiPosition = None
-
+        
+        if(self.args.accuracy is None):
+          self.args.accuracy = min_gpsd_accuracy
+        
         if(self.args.database is not None):
             db = self.args.database
         else:
@@ -935,8 +965,8 @@ class Application (threading.Thread):
         self.airodump.stop()
         self.airodump.join()
     
-    def has_fix(self):
-      return self.gpspoller.has_fix()
+    def has_fix(self, accurate = True):
+      return self.gpspoller.has_fix(accurate)
     
     def run(self):
         if self.interface == '':
@@ -1048,6 +1078,7 @@ class Application (threading.Thread):
       if res is None:
         q = '''insert into stations (id, bssid, latitude, longitude, signal) values (NULL, "%s", "%s", "%s", "%s")'''%(station["bssid"], station["latitude"], station["longitude"], station["signal"])
         self.query(q)
+        self.log("station", "last_seen %s"%station["last_seen"])
         return True
       return False
     
