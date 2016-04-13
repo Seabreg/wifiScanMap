@@ -18,6 +18,7 @@ from SocketServer import ThreadingMixIn
 from threading import Thread
 import json
 import urllib2
+import urllib
 import ssl
 import shutil
 
@@ -194,14 +195,22 @@ class Synchronizer(threading.Thread):
     while self.running:
       
       try:
-        # This restores the same behavior as before.
         context = ssl._create_unverified_context()
         raw = urllib2.urlopen("%s/status.json"%self.base, context=context)
-        date = json.loads(raw.read())["sync"][0]
-        date = date.split('.')[0]
+        date = json.loads(raw.read())["sync"]
+        if date is not None:
+          date = date[0].split('.')[0]
+        else:
+          date = '1980-01-01 00:00:00'
         
-        n = self.application.getAll(date)
-        data = json.dumps(n)
+        ap = self.application.getAll(date)['networks']
+        p = self.application.getAllProbes()['probes']
+        s = self.application.getAllStations('like "%%" or date > "%s"'%date)
+        data = {
+          'ap':ap,
+          'probes': p,
+          'stations': s
+                }
         
         req = urllib2.Request('%s/upload.json'%self.base)
         req.add_header('Content-Type', 'application/json')
@@ -597,8 +606,9 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           self.end_headers()
           length = int(self.headers['Content-Length'])
           post = self.rfile.read(length)
-          data = json.loads(post.decode('string-escape').strip('"'))
-          for n in data['networks']:
+          post = post.decode('string-escape').strip('"')
+          data = json.loads(post,strict=False)
+          for n in data['ap']:
             network = {}
             network['bssid'] = n[0]
             network['essid'] = n[1]
@@ -611,6 +621,19 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             network['mode'] = n[8]
             network['date'] = n[9]
             self.server.app.update(network)
+          
+          for bssid in data['stations']:
+            for n in data['stations'][bssid]["points"]:
+              p = n
+              p['bssid'] = bssid
+              self.server.app.update_station(p)
+          
+          for probe in data['probes']:
+            p = {}
+            p['bssid'] = probe[0]
+            p['essid'] = probe[1]
+            self.server.app.update_probe(p)
+          
           self.wfile.write(json.dumps('ok'))
     
     def do_GET(self):
@@ -647,13 +670,18 @@ class WebuiHTTPServer(ThreadingMixIn, HTTPServer, Thread):
     threading.Thread.__init__(self)
     self.app = app
     self.www_directory = "www/"
+    self.stopped = False
+    
+  def stop(self):
+    self.stopped = True
     
   def run(self):
-      while True:
+      while not self.stopped:
           self.handle_request()
       
-class Application:
+class Application (threading.Thread):
     def __init__(self, args):
+        threading.Thread.__init__(self)
         self.args = args
         self.manufacturers_db = '/usr/share/wireshark/manuf'
         self.manufacturers = {}
@@ -661,7 +689,6 @@ class Application:
         self.stopped = False
         self.session = gps(mode=WATCH_ENABLE)
         self.ignore_bssid = []
-        self.last_fix = False
         self.last_updated = 0
         self.network_count = 0
         self.interface = ''
@@ -799,14 +826,20 @@ class Application:
       searchs = []
       search_where = ''
       if search is not None:
-        for s in search.split(','):
-          searchs.append( '"%s"'%s.strip())
-        search_where = 'where bssid in (%s)'%','.join(searchs)
+        if len(search.split(',')) != 1:
+          for s in search.split(','):
+            searchs.append( '"%s"'%s.strip())
+          search_where = 'where bssid in (%s)'%','.join(searchs)
+        else:
+          search_where = 'where bssid %s'%urllib.unquote(search)
       q = "select distinct (bssid) from stations %s"%search_where
       for s in self.fetchall(q):
         bssid = s[0]
         if not stations.has_key(bssid):
-          stations[bssid] = []
+          stations[bssid] = {}
+          stations[bssid]["manufacturer"] = self.getManufacturer(bssid)
+          stations[bssid]["points"] = []
+                    
         q = 'select * from stations where bssid="%s"'%bssid
         for r in self.fetchall(q):
           station = {}
@@ -814,7 +847,7 @@ class Application:
           station["longitude"] = r[3]
           station["signal"] = r[4]
           station["date"] = r[5]
-          stations[bssid].append(station)
+          stations[bssid]["points"].append(station)
       return stations
     
     def getAllProbes(self, distinct = False):
@@ -874,6 +907,13 @@ class Application:
     def stop(self):
         self.stopped = True
         self.gpspoller.stop()
+        self.gpspoller.join()
+        self.synchronizer.stop()
+        self.synchronizer.join()
+        self.httpd.stop()
+        self.httpd.join()
+        self.airodump.stop()
+        self.airodump.join()
     
     def has_fix(self):
       return self.session.fix.mode > 1
@@ -943,19 +983,12 @@ class Application:
               sleep = 1
           
           time.sleep(sleep)
-    
+      
     def update(self, wifi):
         if not wifi.has_key('latitude'):
           return False
         if math.isnan(wifi["longitude"]):
-            if self.last_fix:
-                self.log("gps", 'NO_FIX')
-                self.last_fix = False
             return False
-        else:
-            if not self.last_fix:
-                self.log("gps", 'FIX')
-                self.last_fix = True
                 
         q = '''select * from wifis where bssid="%s" and essid="%s"'''%(wifi["bssid"], wifi["essid"])
         res = self.fetchone(q)
@@ -1123,11 +1156,14 @@ class Application:
 
 def main(args):
     app = Application(args)
+    app.start()
     try:
-        app.run()
+        while True:
+          time.sleep(1)
     except KeyboardInterrupt:
         print "Exiting..."
         app.stop()
+    print "stopped"
         
 
 
