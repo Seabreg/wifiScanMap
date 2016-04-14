@@ -1,97 +1,65 @@
-<head>
-  <script src="js/jquery-1.11.2.min.js"></script>
-  <style>
-    #currentProbesContainer, #currentWifisContainer, #currentStationsContainer {
-      float:left;
-      min-width: 20%;
-    }
-  </style>
-</head>
-<h1>Offline</h1>
-<div id="position">
-  <div>Gps: <span id="gpsPos"></span></div>
-  <div>Wifi: <span id="wifiPos"></span></div>
-</div>
-<div id="stat">
-Total wifis: <span id="stat_total"></span><br/>
-Total open Wifis: <span id="stat_open"></span>
-</div>
-<div id="current">
-  <div id="currentWifisContainer" >
-    <h2>Wifis</h2>
-    <ul id="currentWifis">
-    </ul>
-  </div>
-  <div id="currentProbesContainer" >
-    <h2>Probes</h2>
-    <ul id="currentProbes">
-    </ul>
-  </div>
-  <div id="currentStationsContainer" >
-    <h2>Stations</h2>
-    <ul id="currentStations">
-    </ul>
-  </div>
-</div>
-
-<script>
-          function update(){
-          $.getJSON('/status.json').done( function(data){
-              $("#stat_total").html(data["stat"]["total"]);
-              $("#stat_open").html(data["stat"]["open_count"]);
-              if(data['position']['gps']['fix'])
-              {
-                lat = data['position']['gps']['latitude'];
-                lon = data['position']['gps']['longitude'];
-                $("#gpsPos").html('<a href="http://www.openstreetmap.org/search?query='+lat+'%2C'+lon+'#map=18/45.00000/0.00000" >'+lat + ', '+lon+ "</a> ( "+data['position']['gps']['accuracy']+"m)");
-              }
-              else
-              {
-                $("#gpsPos").html("No fix");
-              }
-              if(data['position']['wifi']['fix'])
-              {
-                lat = data['position']['wifi']['latitude'];
-                lon = data['position']['wifi']['longitude'];
-                $("#wifiPos").html('<a href="http://www.openstreetmap.org/search?query='+lat+'%2C'+lon+'#map=18/45.00000/0.00000" >'+lat + ', '+lon+ "</a>");
+<!DOCTYPE html> 
+<html>
+<head> 
+ 
+<script src="/js/components/jquery/dist/jquery.js"></script>
+<script src="/js/components/angular/angular.js"></script>
+<script src="/js/components/ol3/ol.js"></script>
+<script src="/js/components/jquery-ui/jquery-ui.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/offline/controller.js"></script>
+<link rel="stylesheet" href="/css/offline.css" />
+<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
+</head> 
+<body ng-app="ScanMap"> 
+	<div ng-controller="offlineController">
+          <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps</div>
+          <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi</div><br/>
+          wifis: {{status.stat.total}}, {{status.stat.open_count}} open
+        <div>
+          <div id="currentWifisContainer" >
+            <h2>Wifis</h2>
+            <ul id="current-wifis">
+              <li ng-repeat="wifi in status.current.wifis"> <div class="progress">
               
-              }
-              else
-              {
-                $("#wifiPos").html("No fix");
-              }
-              
-              html = "";
-              for(w in data["current"]["wifis"])
-              {
-                img = "";
-                if(data["current"]["wifis"][w]["encryption"])
-                {
-                  img = '<img src="/img/locked.png">';
-                }
-                html += "<li>"+img+"&nbsp;"+data["current"]["wifis"][w]["essid"] + ' <b>' + data["current"]["wifis"][w]["signal"] +"</b></li>";
-              }
-              $("#currentWifis").html(html);
-              
-              html = "";
-              for(w in data["current"]["probes"])
-              {
-                html += "<li>"+data["current"]["probes"][w]["essid"] + ' (' + data["current"]["probes"][w]["manufacturer"] + ') <b>' + data["current"]["probes"][w]["signal"] +"</b></li>";
-              }
-              $("#currentProbes").html(html);
-              
-              html = "";
-              for(w in data["current"]["stations"])
-              {
-                html += "<li>"+data["current"]["stations"][w]["bssid"] + " " + data["current"]["stations"][w]["manufacturer"] + ' <b>' + data["current"]["stations"][w]["signal"] +"</b></li>";
-              }
-              $("#currentStations").html(html);
-              
-          }) .fail(function(d, textStatus, error) {
-      console.error("getJSON failed, status: " + textStatus + ", error: "+error)
-});
-          setTimeout(update,1000);
-          }
-          
-          setTimeout(update,1000);
-</script>
+              <div class="progress">
+              <div class="progress-bar" role="progressbar" aria-valuenow="70"
+              aria-valuemin="0" aria-valuemax="100" style="width:{{100+wifi.signal}}%">
+                {{wifi.essid}}
+              </div>
+            </div>
+              </li>
+            </ul>
+          </div>
+          <div id="currentProbesContainer" >
+          <h2>Probes</h2>
+          <ul id="current-probes">
+            <li ng-repeat="probe in status.current.probes">
+            
+              <div class="progress">
+                <div class="progress-bar" role="progressbar" aria-valuenow="70"
+                aria-valuemin="0" aria-valuemax="100" style="width:{{100+probe.signal}}%">
+                  {{probe.essid}}
+                </div>
+              </div>
+            </li>
+          </ul>
+          </div>
+          <div id="currentStationsContainer" >
+          <h2>Stations</h2>
+          <ul id="current-stations">
+            <li ng-repeat="station in status.current.stations">
+            
+              <div class="progress">
+                <div class="progress-bar" role="progressbar" aria-valuenow="70"
+                aria-valuemin="0" aria-valuemax="100" style="width:{{100+station.signal}}%">
+                  {{station.bssid}}
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+</body>
+</html>

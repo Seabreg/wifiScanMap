@@ -1,0 +1,8 @@
+#currentProbesContainer, #currentWifisContainer, #currentStationsContainer {
+  float:left;
+  min-width: 30%;
+}
+
+h2 {
+ text-align:center; 
+}

@@ -1,0 +1,83 @@
+<!DOCTYPE html> 
+<html>
+<head> 
+ 
+<script src="/js/components/jquery/dist/jquery.js"></script>
+<script src="/js/components/angular/angular.js"></script>
+<script src="/js/components/ol3/ol.js"></script>
+<script src="/js/components/jquery-ui/jquery-ui.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/index/controller.js"></script>
+<link rel="stylesheet" href="/css/index.css" />
+<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
+</head> 
+<body ng-app="ScanMap"> 
+	<div ng-controller="indexController">
+ 
+ 
+ 
+ <div >
+<!--  First Name: <input type="text" ng-model="firstName"><br> -->
+      <div id="left-pannel">
+        <ul id="wifis-list"></ul>
+      </div>
+      <div id="pannel">
+      <div id="control">
+<!--         <input type="text" name="host" ng-model="host" > <button ng-click="changeHost()" >Change</button> -->
+      <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps</div>
+          <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi</div><br/>
+      <button ng-click="center()" >Center</button> <br/>
+      wifis: {{status.stat.total}}, {{status.stat.open_count}} open
+      </div>
+        <hr/>
+        <ul id="current-wifis">
+          <li ng-repeat="wifi in status.current.wifis"> <div class="progress">
+          
+          <div class="progress">
+          <div class="progress-bar" role="progressbar" aria-valuenow="70"
+          aria-valuemin="0" aria-valuemax="100" style="width:{{100+wifi.signal}}%">
+            {{wifi.essid}}
+          </div>
+        </div>
+          </li>
+        </ul>
+        <hr/>
+        <ul id="current-probes">
+          <li ng-repeat="probe in status.current.probes">
+          
+            <div class="progress">
+              <div class="progress-bar" role="progressbar" aria-valuenow="70"
+              aria-valuemin="0" aria-valuemax="100" style="width:{{100+probe.signal}}%">
+                {{probe.essid}}
+              </div>
+            </div>
+          </li>
+        </ul>
+        <hr/>
+        <ul id="current-stations">
+          <li ng-repeat="station in status.current.stations">
+          
+            <div class="progress">
+              <div class="progress-bar" role="progressbar" aria-valuenow="70"
+              aria-valuemin="0" aria-valuemax="100" style="width:{{100+station.signal}}%">
+                {{station.bssid}}
+              </div>
+            </div>
+          </li>
+        </ul>
+        
+      </div>
+      <div id="map"></div>
+
+</div>
+ 
+ 
+    <div>
+ 
+ 
+<script> 
+
+ 
+</script>
+</body> 
+</html>
