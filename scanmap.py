@@ -585,9 +585,10 @@ class Application (threading.Thread):
         
         if self.args.monitor:
           if self.interface != 'mon0':
-            cmd = ['airmon-ng', 'start' ,self.interface]
-            p = subprocess.Popen(cmd)
-            p.wait()
+            if 'mon0' not in self.getWirelessInterfacesList():
+              cmd = ['airmon-ng', 'start' ,self.interface]
+              p = subprocess.Popen(cmd)
+              p.wait()
           self.interface = 'mon0'
                 
         
