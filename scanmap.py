@@ -353,16 +353,16 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           if not i[2]:
             open_icon='-open'
           else:
-            key = '<img src=\\"locked.png\\">'
+            key = '<img src=\\"/img/locked.png\\">'
           manufacturer = self.server.app.getManufacturer(i[0])
           ssid = unicode(i[1]).encode('utf8')
           names = "%s<li>%s %s %s</li>"%(names,key, ssid, manufacturer)
         name = "%s</ul>"%names
-        icon = "marker%s.png"%open_icon
+        icon = "/img/marker%s.png"%open_icon
         if count >= 2:
-          icon ="marker-few%s.png"%open_icon
+          icon ="/img/marker-few%s.png"%open_icon
         if count >= 4:
-          icon ="marker-many%s.png"%open_icon
+          icon ="/img/marker-many%s.png"%open_icon
         html+= '''
       setMarker(markers, '''+str(lat)+''', '''+str(lon)+''', "'''+names+'''", "'''+icon+'''");'''
         return html

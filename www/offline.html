@@ -67,7 +67,7 @@ Total open Wifis: <span id="stat_open"></span>
                 img = "";
                 if(data["current"]["wifis"][w]["encryption"])
                 {
-                  img = '<img src="locked.png">';
+                  img = '<img src="/img/locked.png">';
                 }
                 html += "<li>"+img+"&nbsp;"+data["current"]["wifis"][w]["essid"] + ' <b>' + data["current"]["wifis"][w]["signal"] +"</b></li>";
               }
