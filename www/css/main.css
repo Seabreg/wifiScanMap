@@ -1,0 +1,22 @@
+ 
+ .device-type {
+   height:16px;
+   width:16px;
+   background-size: 16px 16px;
+   background-repeat: no-repeat;
+ }
+ 
+ .android {
+   background-image:url(/img/android.png);
+ }
+ 
+ .apple {
+   background-image:url(/img/apple.png);
+ }
+ 
+ .mobile {
+   background-image:url(/img/smartphone.png);
+ }
+ 
+ .no-mobile {
+ }

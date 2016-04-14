@@ -40,6 +40,12 @@
    color:red; 
  }
  
+ .manufacturer-logo {
+/*   float:left;  */
+  height:16px;
+  width:16px;
+ }
+ 
  .progress-bar {
    background-color:#CCE6FF;
    color:black;

@@ -8,6 +8,7 @@
 <script src="/js/components/jquery-ui/jquery-ui.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/index/controller.js"></script>
+<link rel="stylesheet" href="/css/main.css" />
 <link rel="stylesheet" href="/css/index.css" />
 <link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
 </head> 
@@ -30,9 +31,10 @@
       wifis: {{status.stat.total}}, {{status.stat.open_count}} open
       </div>
         <hr/>
+        <img src="/img/wifi-ap.png" alt="wifi-logo" />
+        <br/>
         <ul id="current-wifis">
-          <li ng-repeat="wifi in status.current.wifis"> <div class="progress">
-          
+          <li ng-repeat="wifi in status.current.wifis">
           <div class="progress">
           <div class="progress-bar" role="progressbar" aria-valuenow="70"
           aria-valuemin="0" aria-valuemax="100" style="width:{{100+wifi.signal}}%">
@@ -42,6 +44,7 @@
           </li>
         </ul>
         <hr/>
+        <img src="/img/probe.png" alt="probes-logo" />
         <ul id="current-probes">
           <li ng-repeat="probe in status.current.probes">
           
@@ -54,9 +57,10 @@
           </li>
         </ul>
         <hr/>
+        <img src="/img/station.png" alt="stations-logo" />
         <ul id="current-stations">
           <li ng-repeat="station in status.current.stations">
-          
+          <div class="device-type" ng-class="{'android':station.manufacturer == 'Google', 'apple':station.manufacturer == 'Apple', 'mobile':station.mobile, 'no-mobile':!station.mobile}" ></div>
             <div class="progress">
               <div class="progress-bar" role="progressbar" aria-valuenow="70"
               aria-valuemin="0" aria-valuemax="100" style="width:{{100+station.signal}}%">

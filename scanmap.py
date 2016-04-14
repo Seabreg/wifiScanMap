@@ -163,6 +163,7 @@ class AirodumpPoller(threading.Thread):
                 n["channel"] = fields[3]
                 n["frequency"] = -1
                 n["manufacturer"] = self.application.getManufacturer(n["bssid"])
+                n["mobile"] = self.application.is_mobile(n["manufacturer"])
                 n["signal"] = float(fields[8])
                 
                 if(n["signal"] >= -1):
@@ -189,6 +190,7 @@ class AirodumpPoller(threading.Thread):
                 s['last_seen'] = fields[2]
                 s['signal'] = float(fields[3])
                 s["manufacturer"] = self.application.getManufacturer(s["bssid"])
+                s["mobile"] = self.application.is_mobile(s["manufacturer"])
                 if fix:
                   s['latitude'] = lat
                   s['longitude'] = lon
@@ -202,6 +204,7 @@ class AirodumpPoller(threading.Thread):
                     p['bssid'] = fields[0]
                     p['signal'] = s['signal']
                     p['manufacturer'] = s["manufacturer"]
+                    p['mobile'] = s['mobile']
                     p['essid'] = r.replace("\r\n", "")
                     if p['essid'] != "":
                       if not self.is_too_old(s['last_seen'], default_airodump_age):
@@ -463,6 +466,15 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           
           self.wfile.write(json.dumps('ok'))
     
+    def _get_manufacturer(self, manufacturer):
+      basepath = os.path.join('img','manufacturer')
+      path = os.path.join(basepath,"%s.png"%manufacturer)
+      fullpath = os.path.join(self.server.www_directory,path)
+      if os.path.exists(fullpath):
+        return self._get_file(path)
+      else:
+        return self._get_file(os.path.join(basepath,"unknown.png"))
+    
     def do_GET(self):
         path,params,args = self._parse_url()
         if ('..' in args) or ('.' in args):
@@ -478,6 +490,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           return self.setParam(key,value)
         elif len(args) == 1 and args[0] == 'kml':
             return self._get_kml()
+        elif len(args) == 1 and args[0] == 'manufacturer':
+            return self._get_manufacturer(params.split('=')[1])
         elif len(args) == 1 and args[0] == 'csv':
             return self._get_csv()
         elif len(args) == 1 and args[0] == 'wifis.json':
@@ -874,7 +888,7 @@ class Application (threading.Thread):
         res = re.findall("(..:..:..)\s(.*)\s#\s(.*)", manuf)
         if res is not None:
           for m in res:
-            self.manufacturers[m[0]] = m[1]
+            self.manufacturers[m[0]] = m[1].strip()
       except:
         pass
       return ''
@@ -990,6 +1004,9 @@ class Application (threading.Thread):
       data = open(path,'r').read()
       data = data[0:-1] # remove EOL
       return data
+    
+    def is_mobile(self, manufacturer):
+      return manufacturer in ['Apple', 'Nokia', 'Google', "4pMobile", "AavaMobi", "Advanced", "Asmobile", "AutonetM", "AzteqMob", "BejingDa", "Cambridg", "CasioHit", "Cellebri", "CgMobile", "ChinaMob", "CnfMobil", "CustosMo", "DatangMo", "DeltaMob", "DigitMob", "DmobileS", "EzzeMobi", "Farmobil", "Far-Sigh", "FuturaMo", "GmcGuard", "Guangdon", "HisenseM", "HostMobi", "IgiMobil", "IndigoMo", "InqMobil", "Ipmobile", "JdmMobil", "Jetmobil", "JustInMo", "KbtMobil", "L-3Commu", "LenovoMo", "LetvMobi", "LgElectr", "LiteonMo", "MemoboxS", "Microsof", "Mobacon", "Mobiis", "Mobilarm", "Mobileac", "MobileAc", "MobileAp", "Mobilear", "Mobileco", "MobileCo", "MobileCr", "MobileDe", "Mobileec", "MobileIn", "MobileMa", "MobileSa", "Mobileso", "MobileTe", "MobileXp", "Mobileye", "Mobilico", "Mobiline", "Mobilink", "Mobilism", "Mobillia", "Mobilmax", "Mobiltex", "Mobinnov", "Mobisolu", "Mobitec", "Mobitek", "MobiusTe", "Mobiwave", "Moblic", "Mobotix", "Mobytel", "Motorola", "NanjingS", "NecCasio", "P2Mobile", "Panasoni", "PandoraM", "Pointmob", "PoshMobi", "Radiomob", "RadioMob", "RapidMob", "RttMobil", "Shanghai", "Shenzhen", "SianoMob", "Smobile", "SonyEric", "SonyMobi", "Sysmocom", "T&AMobil", "TcmMobil", "TctMobil", "Tecmobil", "TinnoMob", "Ubi&Mobi", "Viewsoni", "Vitelcom", "VivoMobi", "XcuteMob", "XiamenMe", "YuduanMo"]
 
 def main(args):
     app = Application(args)
