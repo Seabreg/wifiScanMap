@@ -3,3 +3,9 @@
   min-width: 30%;
   text-align:center; 
 }
+
+.manufacturer {
+ float:left;
+ width:20%;
+ min-width:20%;
+}

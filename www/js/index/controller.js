@@ -7,16 +7,27 @@
       this.host = "";
       
       this.$scope = $scope;
+      this.$scope.link_status = false;
+      this.$scope.display_wifis = true;
       this.$http = $http;
       
-      this.vectorSource = new ol.source.Vector({});
+      this.postionSource = new ol.source.Vector({});
+      this.wifisSource = new ol.source.Vector({});
+      this.stationsSource = new ol.source.Vector({});
+      
       this.map = new ol.Map({
         layers: [
         new ol.layer.Tile({
           source: new ol.source.OSM()
         }),
         new ol.layer.Vector({
-          source: this.vectorSource
+          source: this.postionSource
+        }),
+        new ol.layer.Vector({
+          source: this.wifisSource
+        }),
+        new ol.layer.Vector({
+          source: this.stationsSource
         })
         ],
         target: 'map',
@@ -69,8 +80,8 @@
       this.gps.setStyle(pointStyle);
       this.wifi.setStyle(pointStyleWifi);
       
-      this.vectorSource.addFeature( this.gps );
-      this.vectorSource.addFeature( this.wifi );
+      this.postionSource.addFeature( this.gps );
+      this.postionSource.addFeature( this.wifi );
       
       
       
@@ -100,6 +111,23 @@
         self.host = self.$scope.map.host;
         self.changeHost();
       }
+
+      $scope.update_wifis = function() {
+        if(self.$scope.display_wifis) {
+          self.update_wifis();
+        } else {
+          self.wifisSource.clear();
+        }
+      }
+      
+      $scope.update_stations = function() {
+        if(self.$scope.display_stations) {
+          self.update_stations();
+        } else {
+          self.stationsSource.clear();
+        }
+      }
+      
       
       this.map.getViewport().addEventListener('click', function (e) {
         e.preventDefault();
@@ -131,35 +159,72 @@
       
     }
     
-    update() {
+    update_status() {
+      var self = this;
       this.$http.get(this.host+'/status.json').then(response => {
-        this.$scope.status = response.data;
+        self.$scope.status = response.data;
+        self.$scope.link_status = true;
         
         if(response.data['position']['wifi']['fix']) {
           var longitude = response.data['position']['wifi']['longitude'];
           var latitude = response.data['position']['wifi']['latitude'];
           var point = new ol.geom.Point( ol.proj.transform([longitude, latitude ], 'EPSG:4326', 'EPSG:3857'));
-          this.wifi.setGeometry(point);
+          self.wifi.setGeometry(point);
         }
         
         if(response.data['position']['gps']['fix']) {
           var longitude = response.data['position']['gps']['longitude'];
           var latitude = response.data['position']['gps']['latitude'];
           var point = new ol.geom.Point( ol.proj.transform([longitude, latitude ], 'EPSG:4326', 'EPSG:3857'));
-          this.gps.setGeometry(point);
+          self.gps.setGeometry(point);
         }
-        setTimeout(this.update.bind( this ),1000);
+        setTimeout(self.update_status.bind( self ),1000);
+      }, function errorCallback(response) {
+        self.$scope.link_status = false;
+        setTimeout(self.update_status.bind( self ),1000);
       });
     }
     
-    changeHost() {
+    
+    update_stations() {
+      this.stationsSource.clear();
+      this.$http.get(this.host + '/stations.json').then(response => {
+        this.stations = response.data
+        for(var i in response.data) {
+          var color = '#'+Math.random().toString(16).slice(-3);
+          for(var r in response.data[i]['points']) {
+            var res = response.data[i]['points'][r]
+            var point = new ol.geom.Point( ol.proj.transform([res["longitude"], res["latitude"]], 'EPSG:4326', 'EPSG:3857'));
+            var station = new ol.Feature({
+              geometry: point,
+              station : { bssid: i, manufacturer:response.data[i]['manufacturer'], date: res["date"], signal: res["signal"]}
+            });
+            var pointStyle = new ol.style.Style({
+              image: new ol.style.Circle({
+                //               fill: new ol.style.Fill({
+                //                 color: color
+                //               }),
+                stroke: new ol.style.Stroke({
+                  color: color,
+                  width: 2
+                }),
+                radius: 4,
+              })
+            })
+            station.setStyle(pointStyle);
+            this.stationsSource.addFeature( station );
+          }
+        }
+      });
+    }
+    
+    update_wifis() {
       var wifis = [];
       var lastLat = -1;
       var lastLon = -1;
       var info = []
-      this.vectorSource.clear();
+      this.wifisSource.clear();
       this.$http.get(this.host+'/wifis.json').then(response => {
-        this.wifis_count = response.data
         for(var w in response.data) {
           if(response.data[w]['latitude'] != lastLat || response.data[w]['longitude'] != lastLon ) {
             if(info.length > 0) {
@@ -222,10 +287,14 @@
             geometry: point
           });
           wifi.setStyle(pointStyle);
-          this.vectorSource.addFeature( wifi );
+          this.wifisSource.addFeature( wifi );
         }
       });
-      this.update();
+    }
+    
+    changeHost() {
+      this.update_wifis();
+      this.update_status();
     }
   }
   

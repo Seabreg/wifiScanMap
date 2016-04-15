@@ -1,9 +1,11 @@
- 
+
  .device-type {
    height:16px;
    width:16px;
    background-size: 16px 16px;
    background-repeat: no-repeat;
+   float:left;
+   margin-right:2%;
  }
  
  .android {
@@ -20,3 +22,7 @@
  
  .no-mobile {
  }
+ 
+ul {
+  list-style-type: none;
+}

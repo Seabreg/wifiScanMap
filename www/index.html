@@ -1,11 +1,12 @@
 <!DOCTYPE html> 
 <html>
 <head> 
- 
+<title>WifiScanMap | wifis</title> 
 <script src="/js/components/jquery/dist/jquery.js"></script>
 <script src="/js/components/angular/angular.js"></script>
 <script src="/js/components/ol3/ol.js"></script>
 <script src="/js/components/jquery-ui/jquery-ui.js"></script>
+<script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/index/controller.js"></script>
 <link rel="stylesheet" href="/css/main.css" />
@@ -25,10 +26,21 @@
       <div id="pannel">
       <div id="control">
 <!--         <input type="text" name="host" ng-model="host" > <button ng-click="changeHost()" >Change</button> -->
+      <div ng-class="{'label label-success':link_status, 'label label-danger':!link_status}" >Service</div>
       <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps</div>
           <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi</div><br/>
       <button ng-click="center()" >Center</button> <br/>
-      wifis: {{status.stat.total}}, {{status.stat.open_count}} open
+      wifis: {{status.stat.total}}, {{status.stat.open_count}} open<br/>
+      
+      
+      <label>Wifis</label>
+      <input type="checkbox" ng-model="display_wifis" ng-change="update_wifis()" checked /><br/>
+      <label>Probes</label>
+      <input type="checkbox" ng-model="display_probes" ng-change="update_probes()" /><br/>
+      <label>Stations</label>
+      <input type="checkbox" ng-model="display_stations" ng-change="update_stations()" /><br/>
+      
+      
       </div>
         <hr/>
         <img src="/img/wifi-ap.png" alt="wifi-logo" />
@@ -60,7 +72,7 @@
         <img src="/img/station.png" alt="stations-logo" />
         <ul id="current-stations">
           <li ng-repeat="station in status.current.stations">
-          <div class="device-type" ng-class="{'android':station.manufacturer == 'Google', 'apple':station.manufacturer == 'Apple', 'mobile':station.mobile, 'no-mobile':!station.mobile}" ></div>
+          <div class="device-type" ng-class="{'android':station.manufacturer == 'Google', 'apple':station.manufacturer == 'Apple', 'microsoft':station.manufacturer == 'Microsof', 'mobile':station.mobile, 'no-mobile':!station.mobile}" ></div>
             <div class="progress">
               <div class="progress-bar" role="progressbar" aria-valuenow="70"
               aria-valuemin="0" aria-valuemax="100" style="width:{{100+station.signal}}%">

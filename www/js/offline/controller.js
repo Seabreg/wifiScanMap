@@ -8,15 +8,22 @@
       
       this.$scope = $scope;
       this.$http = $http;
+      this.$scope.link_status = false;
       this.changeHost();
     }
       
       
     
     update() {
+      var self = this;
       this.$http.get(this.host+'/status.json').then(response => {
-        this.$scope.status = response.data;
-        setTimeout(this.update.bind( this ),1000);
+        self.$scope.status = response.data;
+        self.$scope.link_status = true;
+        setTimeout(self.update.bind( self ),1000);
+      }, function errorCallback(response) {
+        self.$scope.link_status = false;
+        self.$scope.status = {};
+        setTimeout(self.update.bind( self ),1000);
       });
     }
     
