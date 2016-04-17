@@ -67,7 +67,10 @@ class GpsPoller(threading.Thread):
     self.epx = 100
     self.epy = 100
     
-    GPIO.setup(self.gpio, GPIO.OUT, initial=GPIO.LOW)
+    try:
+      GPIO.setup(self.gpio, GPIO.OUT, initial=GPIO.LOW)
+    except:
+      pass
 
   def run(self):
     while self.running:
@@ -226,6 +229,57 @@ class AirodumpPoller(threading.Thread):
           
   def stop(self):
       self.running = False
+
+class BluetoothPoller(threading.Thread):
+  def __init__(self, app):
+    threading.Thread.__init__(self)
+    self.application = app
+    self.lock = Lock()
+    self.stations = []
+    self.running = True #setting the thread running to true
+    
+    if self.application.args.sleep is not None:
+      self.sleep = int(self.application.args.sleep)
+    else:
+      self.sleep = 1
+  
+  def run(self):
+    while self.running:
+      cmd = ['hcitool', 'inq']
+      fix = self.application.has_fix()
+      lon, lat = self.application.getGPSData()
+      
+      process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      process.wait()
+      (stdoutdata, stderrdata) = process.communicate();
+      res = re.findall("\s(.*)\sclock.*\sclass:\s(.*)", stdoutdata)
+      stations = []
+      if res is not None:
+        for row in res:
+          station = {}
+          if fix:
+            station["latitude"] = lat
+            station["longitude"] = lon
+          station['bssid'] = row[0].strip()
+          station['class'] = int(row[1].strip(), 0)
+          cmd = ['hcitool', 'name', station['bssid']]
+          process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+          process.wait()
+          (stdoutdata, stderrdata) = process.communicate();
+          station['name'] = stdoutdata
+          stations.append(station)
+    
+      with self.lock:
+        self.stations = stations
+      time.sleep(self.sleep)
+        
+  def getNetworks(self):
+    with self.lock:
+      return self.networks
+          
+  def stop(self):
+      self.running = False
+
 
 class Synchronizer(threading.Thread):
   def __init__(self, application, uri):
@@ -539,6 +593,7 @@ class Application (threading.Thread):
         self.interface = ''
         self.airodump = None
         self.wifiPosition = None
+        self.bluePoller = BluetoothPoller(self)
         
         if(self.args.accuracy is None):
           self.args.accuracy = min_gpsd_accuracy
@@ -556,7 +611,9 @@ class Application (threading.Thread):
             self.createDatabase()
         
         self.gpspoller = GpsPoller(self.session, self)
+        
         self.gpspoller.start()
+        self.bluePoller.start()
         
         for b in self.getConfig('bssid').split(','):
           self.ignore_bssid.append(b)
@@ -604,8 +661,11 @@ class Application (threading.Thread):
             port = 8686
             
         self.loadManufacturers()
-        self.httpd = WebuiHTTPServer(("", port),self, WebuiHTTPHandler)
-        self.httpd.start()
+        try:
+          self.httpd = WebuiHTTPServer(("", port),self, WebuiHTTPHandler)
+          self.httpd.start()
+        except:
+          self.log("http", "web hmi not available")
     
     def query(self, query):
       with self.lock:
@@ -752,6 +812,8 @@ class Application (threading.Thread):
             (latitude real, longitude real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         self.query('''CREATE TABLE stations
             (id integer primary key, bssid  text, latitude real, longitude real, signal real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        self.query('''CREATE TABLE bt_stations
+            (id integer primary key, bssid  text, class integer, name text, latitude real, longitude real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         self.query('''CREATE TABLE probes (bssid  text, essid text)''')
     
     def log(self, name, value):
@@ -824,6 +886,19 @@ class Application (threading.Thread):
               except:
                 self.log("wifi", "stations insert fails")
             
+            bt = self.bluePoller.stations
+            updated = 0
+            for b in bt:
+              try:
+                if self.update_bt_station(b):
+                    updated += 1
+              except:
+                self.log("bluetooth", "insert fails")
+                print b
+                
+            if updated != 0:
+                self.log("updated bluetooth", updated)
+            
             self.db.commit()
           except Exception as e:
             self.log("wifi", 'fail')
@@ -834,9 +909,20 @@ class Application (threading.Thread):
               sleep = int(self.args.sleep)
           else:
               sleep = 1
-          
           time.sleep(sleep)
       
+      
+    def update_bt_station(self, station):
+      if not station.has_key('latitude'):
+        return False
+      q = '''select * from bt_stations where bssid="%s" and latitude="%s" and longitude="%s"'''%(station["bssid"], station["latitude"], station["longitude"])
+      res = self.fetchone(q)
+      if res is None:
+        q = '''insert into bt_stations (id, bssid, class, name, latitude, longitude) values (NULL, "%s", "%s", "%s", "%s", "%s")'''%(station["bssid"], station['class'], station['name'], station["latitude"], station["longitude"])
+        self.query(q)
+        return True
+      return False
+    
     def update(self, wifi):
         if not wifi.has_key('latitude'):
           return False
