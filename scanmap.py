@@ -21,6 +21,7 @@ import urllib2
 import urllib
 import ssl
 import shutil
+from math import radians, cos, sin, asin, sqrt
 
 import datetime
 
@@ -368,6 +369,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       if wifiPos is not None:
         status['position']['wifi']['latitude'] = wifiPos[0]
         status['position']['wifi']['longitude'] = wifiPos[1]
+        status['position']['wifi']['accuracy'] = wifiPos[2]
       
       self.send_response(200)
       self.send_header('Access-Control-Allow-Origin','*')
@@ -1063,12 +1065,12 @@ class Application (threading.Thread):
         return None
       for n in wifis:
         bssid.append("\"%s\""%n["bssid"])
-      q = "select avg(latitude), avg(longitude) from wifis where bssid in ( %s )"%(','.join(bssid))
+      q = "select avg(latitude), avg(longitude), max(latitude)-min(latitude), max(longitude)-min(longitude) from wifis where bssid in ( %s )"%(','.join(bssid))
       res = self.fetchone(q)
       if res is not None:
         if res[0] is None:
           return None
-        return (res[0], res[1])
+        return (res[0], res[1], self.haversine(0,0,res[2],res[3]))
            
     def getGPSData(self):
         longitude = self.session.fix.longitude
@@ -1093,6 +1095,23 @@ class Application (threading.Thread):
       data = open(path,'r').read()
       data = data[0:-1] # remove EOL
       return data
+    
+    
+    def haversine(self, lon1, lat1, lon2, lat2):
+        """
+        Calculate the great circle distance between two points 
+        on the earth (specified in decimal degrees)
+        """
+        # convert decimal degrees to radians 
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+        # haversine formula 
+        dlon = lon2 - lon1 
+        dlat = lat2 - lat1 
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a)) 
+        r = 6371 # Radius of earth in kilometers. Use 3956 for miles
+        return c * r
     
     def is_mobile(self, manufacturer):
       return manufacturer in ['Apple', 'Nokia', 'Google', "4pMobile", "AavaMobi", "Advanced", "Asmobile", "AutonetM", "AzteqMob", "BejingDa", "Cambridg", "CasioHit", "Cellebri", "CgMobile", "ChinaMob", "CnfMobil", "CustosMo", "DatangMo", "DeltaMob", "DigitMob", "DmobileS", "EzzeMobi", "Farmobil", "Far-Sigh", "FuturaMo", "GmcGuard", "Guangdon", "HisenseM", "HostMobi", "IgiMobil", "IndigoMo", "InqMobil", "Ipmobile", "JdmMobil", "Jetmobil", "JustInMo", "KbtMobil", "L-3Commu", "LenovoMo", "LetvMobi", "LgElectr", "LiteonMo", "MemoboxS", "Microsof", "Mobacon", "Mobiis", "Mobilarm", "Mobileac", "MobileAc", "MobileAp", "Mobilear", "Mobileco", "MobileCo", "MobileCr", "MobileDe", "Mobileec", "MobileIn", "MobileMa", "MobileSa", "Mobileso", "MobileTe", "MobileXp", "Mobileye", "Mobilico", "Mobiline", "Mobilink", "Mobilism", "Mobillia", "Mobilmax", "Mobiltex", "Mobinnov", "Mobisolu", "Mobitec", "Mobitek", "MobiusTe", "Mobiwave", "Moblic", "Mobotix", "Mobytel", "Motorola", "NanjingS", "NecCasio", "P2Mobile", "Panasoni", "PandoraM", "Pointmob", "PoshMobi", "Radiomob", "RadioMob", "RapidMob", "RttMobil", "Shanghai", "Shenzhen", "SianoMob", "Smobile", "SonyEric", "SonyMobi", "Sysmocom", "T&AMobil", "TcmMobil", "TctMobil", "Tecmobil", "TinnoMob", "Ubi&Mobi", "Viewsoni", "Vitelcom", "VivoMobi", "XcuteMob", "XiamenMe", "YuduanMo"]

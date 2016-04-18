@@ -17,8 +17,8 @@
 	<div ng-controller="offlineController">
           <div ng-class="{'label label-success':link_status, 'label label-danger':!link_status}" >Service</div>
           
-          <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps</div>
-          <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi</div><br/>
+          <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps {{parseInt(status.position.gps.accuracy)}}m</div>
+          <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi {{parseInt(status.position.wifi.accuracy)}}m</div><br/>
           wifis: {{status.stat.total}}, {{status.stat.open_count}} open
         <div>
           <div id="currentWifisContainer" >
