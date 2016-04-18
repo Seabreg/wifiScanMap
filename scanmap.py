@@ -514,9 +514,14 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           
           for bssid in data['stations']:
             for n in data['stations'][bssid]["points"]:
-              p = n
-              p['bssid'] = bssid
-              self.server.app.update_station(p)
+              station = {}
+              station['id'] = n[0]
+              station['bssid'] = n[1]
+              station['latitude'] = n[2]
+              station['longitude'] = n[3]
+              station['signal'] = n[4]
+              station['date'] = n[5]
+              self.server.app.update_station(station)
           
           for probe in data['probes']:
             p = {}
@@ -972,7 +977,7 @@ class Application (threading.Thread):
       if res is None:
         q = '''insert into stations (id, bssid, latitude, longitude, signal) values (NULL, "%s", "%s", "%s", "%s")'''%(station["bssid"], station["latitude"], station["longitude"], station["signal"])
         self.query(q)
-        self.log("station", "last_seen %s"%station["last_seen"])
+        self.log("station", "update")
         return True
       return False
     
