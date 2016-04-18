@@ -32,7 +32,7 @@
       <button ng-click="center()" >Center</button> <br/>
       wifis: {{status.stat.total}}, {{status.stat.open_count}} open<br/>
       
-      
+      <input type="text" ng-model="search_terms" ng-change="search()" /><br/>
       <label>Wifis</label>
       <input type="checkbox" ng-model="display_wifis" ng-change="update_wifis()" checked /><br/>
       <label>Probes</label>
@@ -81,7 +81,13 @@
             </div>
           </li>
         </ul>
-        
+        <img src="/img/bluetooth.png" alt="bluetooth-stations-logo" />
+        <ul id="current-bluetooth-stations">
+          <li ng-repeat="station in status.current.bluetooth">
+            <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
+                {{station.bssid}}
+          </li>
+        </ul>
       </div>
       <div id="map"></div>
 

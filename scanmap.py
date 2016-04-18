@@ -262,6 +262,7 @@ class BluetoothPoller(threading.Thread):
             station["latitude"] = lat
             station["longitude"] = lon
           station['bssid'] = row[0].strip()
+          station['manufacturer'] = self.application.getManufacturer(station['bssid'])
           station['class'] = int(row[1].strip(), 0)
           cmd = ['hcitool', 'name', station['bssid']]
           process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -449,6 +450,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         s = {}
         s["essid"] = n[0]
         s["count"] = n[1]
+        s["ap"] = n[2]
         data.append(s)
       
       self.wfile.write(json.dumps(data))
@@ -766,7 +768,7 @@ class Application (threading.Thread):
       if not distinct:
         q = 'select * from probes order by essid'
       else:
-        q = 'select essid, count(*) from probes group by essid order by count(*) desc'
+        q = 'select P.essid, count(*) as probes_count, (select count(*) from wifis W where W.essid = P.essid) as wifis_count from probes P group by P.essid order by probes_count desc, wifis_count desc'
       probes["probes"] = self.fetchall(q)
       return probes
     
@@ -802,6 +804,7 @@ class Application (threading.Thread):
       data['wifis'] = wifis
       data['probes'] = probes
       data['stations'] = stations
+      data['bluetooth'] = self.bluePoller.stations
       return data
     
     def createDatabase(self):

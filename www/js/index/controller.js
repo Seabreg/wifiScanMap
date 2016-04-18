@@ -11,7 +11,7 @@
       this.$scope.display_wifis = true;
       this.$http = $http;
       
-      this.postionSource = new ol.source.Vector({});
+      this.position = new ol.source.Vector({});
       this.wifisSource = new ol.source.Vector({});
       this.stationsSource = new ol.source.Vector({});
       
@@ -21,13 +21,16 @@
           source: new ol.source.OSM()
         }),
         new ol.layer.Vector({
-          source: this.postionSource
+          source: this.position,
+          style: this.Stylefunction 
         }),
         new ol.layer.Vector({
-          source: this.wifisSource
+          source: this.wifisSource,
+          style: this.Stylefunction 
         }),
         new ol.layer.Vector({
-          source: this.stationsSource
+          source: this.stationsSource,
+          style: this.Stylefunction 
         })
         ],
         target: 'map',
@@ -80,8 +83,8 @@
       this.gps.setStyle(pointStyle);
       this.wifi.setStyle(pointStyleWifi);
       
-      this.postionSource.addFeature( this.gps );
-      this.postionSource.addFeature( this.wifi );
+      this.position.addFeature( this.gps );
+      this.position.addFeature( this.wifi );
       
       
       
@@ -128,6 +131,23 @@
         }
       }
       
+      $scope.search = function() {
+        var features = self.wifisSource.getFeatures();
+        for(var i in features) {
+          if ('wifis' in features[i].getProperties()) {
+            for(var j in features[i].getProperties().wifis) {
+              if(features[i].getProperties().wifis[j]['essid'] == self.$scope.search_terms) {
+              } else {
+//                 features[i].setMap(null);
+//                 self.wifisSource.removeFeature(features[i]);
+//                 features[i]['HIDDEN'] = true;
+                features[i].set('HIDDEN', true);
+                console.log("hidde");
+              }
+            }
+          }
+        }
+      };
       
       this.map.getViewport().addEventListener('click', function (e) {
         e.preventDefault();
@@ -138,15 +158,24 @@
                                                        return feature;
                                                      });
         if (feature) {
-          var wifis = feature.getProperties().wifis;
           var html = "";
-          for(var i in wifis) {
-            var encryption = "secure";
-            if(wifis[i]["encryption"] == 0) {
-              encryption = "open";
+          if ('wifis' in feature.getProperties()) {
+            var wifis = feature.getProperties().wifis;
+            for(var i in wifis) {
+              var encryption = "secure";
+              if(wifis[i]["encryption"] == 0) {
+                encryption = "open";
+              }
+              html += "<li class="+encryption+" >"+ wifis[i]["essid"] +"</li>";
             }
-            html += "<li class="+encryption+" >"+ wifis[i]["essid"] +"</li>";
+          } else {
+            if ('station' in feature.getProperties()) {
+              var station = feature.getProperties().station;
+              html += "<li>"+ station["date"] + ' ' +station["manufacturer"] +"</li>";
+            }
           }
+          
+         
           $("#wifis-list").html(html);
           $("#left-pannel").show();
         } else {
@@ -284,7 +313,7 @@
           
           var wifi = new ol.Feature({
             wifis:wifis[i],
-            geometry: point
+            geometry: point,
           });
           wifi.setStyle(pointStyle);
           this.wifisSource.addFeature( wifi );
@@ -296,6 +325,19 @@
       this.update_wifis();
       this.update_status();
     }
+    
+    Stylefunction (feature, resolution) {
+//       console.log("===");
+//       return null;
+//       var prop = feature.getProperties();
+//       console.log(prop);
+//       if (prop.HIDDEN)
+//         return;
+//       
+//       return style;
+    }
+    
+    
   }
   
   app.controller('indexController', function($http,$scope) {

@@ -65,6 +65,15 @@
             </li>
           </ul>
         </div>
+        <div id="currentStationsContainer" >
+          <img src="/img/bluetooth.png" alt="bluetooth-stations-logo" />
+          <ul id="current-bluetooth-stations">
+            <li ng-repeat="station in status.current.bluetooth">
+              <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
+                  {{station.bssid}}
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
 </body>

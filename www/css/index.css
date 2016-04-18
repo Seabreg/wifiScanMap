@@ -51,7 +51,7 @@
    color:black;
  }
  
- #control, #current-wifis, #current-probes, #current-stations {
+ #control, #current-wifis, #current-probes, #current-stations, #current-stations {
  overflow:auto;
- height:200px;
+ height:100px;
  }
