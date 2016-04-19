@@ -303,19 +303,39 @@ class Synchronizer(threading.Thread):
         else:
           date = '1980-01-01 00:00:00'
         
-        ap = self.application.getAll(date)['networks']
-        p = self.application.getAllProbes()['probes']
-        s = self.application.getAllStations('like "%%" or date > "%s"'%date)
+        res = self.application.getAll(date)['networks']
         data = {
-          'ap':ap,
-          'probes': p,
-          'stations': s
-                }
-        
+          'ap':res,
+          'probes': [],
+          'stations': []
+        }
         req = urllib2.Request('%s/upload.json'%self.base)
         req.add_header('Content-Type', 'application/json')
         response = urllib2.urlopen(req, json.dumps(data), context=context)
-        print "sync"
+        print "network synced"
+        
+        res = self.application.getAllProbes()['probes']
+        data = {
+          'ap':[],
+          'probes': res,
+          'stations': []
+        }
+        req = urllib2.Request('%s/upload.json'%self.base)
+        req.add_header('Content-Type', 'application/json')
+        response = urllib2.urlopen(req, json.dumps(data), context=context)
+        print "probes synced"
+        
+        res = self.application.getAllStations('date > "%s"'%date)
+        data = {
+          'ap':[],
+          'probes': [],
+          'stations': res
+        }
+        req = urllib2.Request('%s/upload.json'%self.base)
+        req.add_header('Content-Type', 'application/json')
+        response = urllib2.urlopen(req, json.dumps(data), context=context)
+        
+        print "stations synced"
       except:
         print "Sync unavailable"
       time.sleep(60)
@@ -739,6 +759,15 @@ class Application (threading.Thread):
       q='''select bssid, date(date), count(distinct date(date)) from stations group by bssid order by count(distinct date(date)) DESC, date %s'''%limit
       return self.fetchall(q)
     
+    #def getAllStations(self, search = None):
+      #stations = []
+      #search_where = ""
+      #if search is not None:
+        #search_where = "where %s"%search
+      
+      #q = 'select * from stations %s'%search_where
+      #return self.fetchall(q)
+    
     def getAllStations(self, search = None):
       stations = {}
       searchs = []
@@ -760,12 +789,13 @@ class Application (threading.Thread):
                     
         q = 'select * from stations where bssid="%s"'%bssid
         for r in self.fetchall(q):
-          station = {}
-          station["latitude"] = r[2]
-          station["longitude"] = r[3]
-          station["signal"] = r[4]
-          station["date"] = r[5]
-          stations[bssid]["points"].append(station)
+          if len(r) >= 5:
+            station = {}
+            station["latitude"] = r[2]
+            station["longitude"] = r[3]
+            station["signal"] = r[4]
+            station["date"] = r[5]
+            stations[bssid]["points"].append(station)
       return stations
     
     def getAllProbes(self, distinct = False):
