@@ -32,7 +32,7 @@
       <button ng-click="center()" >Center</button> <br/>
       wifis: {{status.stat.total}}, {{status.stat.open_count}} open<br/>
       
-      <input type="text" ng-model="search_terms" ng-change="search()" /><br/>
+      <input type="text" ng-model="search_terms" /><button ng-click="search()" >Search</button><br/>
       <label>Wifis</label>
       <input type="checkbox" ng-model="display_wifis" ng-change="update_wifis()" checked /><br/>
       <label>Probes</label>

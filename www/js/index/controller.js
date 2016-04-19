@@ -3,8 +3,9 @@
 (function() {
   
   class indexController {
-    constructor($http, $scope) {
+    constructor($http, $scope, $location) {
       this.host = "";
+      this.$location = $location
       
       this.$scope = $scope;
       this.$scope.link_status = false;
@@ -15,6 +16,8 @@
       this.wifisSource = new ol.source.Vector({});
       this.stationsSource = new ol.source.Vector({});
       
+      this.$scope.search_terms = this.$location.path().substring(1);
+      
       this.map = new ol.Map({
         layers: [
         new ol.layer.Tile({
@@ -22,15 +25,12 @@
         }),
         new ol.layer.Vector({
           source: this.position,
-          style: this.Stylefunction 
         }),
         new ol.layer.Vector({
           source: this.wifisSource,
-          style: this.Stylefunction 
         }),
         new ol.layer.Vector({
           source: this.stationsSource,
-          style: this.Stylefunction 
         })
         ],
         target: 'map',
@@ -132,17 +132,45 @@
       }
       
       $scope.search = function() {
-        var features = self.wifisSource.getFeatures();
-        for(var i in features) {
-          if ('wifis' in features[i].getProperties()) {
-            for(var j in features[i].getProperties().wifis) {
-              if(features[i].getProperties().wifis[j]['essid'] == self.$scope.search_terms) {
+        
+        $location.path (self.$scope.search_terms);
+        var pattern = new RegExp(self.$scope.search_terms,"i");
+        if(self.$scope.display_wifis) {
+          var features = self.wifisSource.getFeatures();
+          for(var i in features) {
+            if ('wifis' in features[i].getProperties()) {
+              var hide = true;
+              for(var j in features[i].getProperties().wifis) {
+                var wifi = features[i].getProperties().wifis[j]
+                if(pattern.test(wifi['bssid']) || pattern.test(wifi['essid']) || pattern.test(wifi['manufacturer'])) {
+                  hide = false;
+                }
+              }
+              if(hide) {
+                var point = new ol.geom.Point( ol.proj.transform([0, 0 ], 'EPSG:4326', 'EPSG:3857'));
+                features[i].setGeometry(point);
               } else {
-//                 features[i].setMap(null);
-//                 self.wifisSource.removeFeature(features[i]);
-//                 features[i]['HIDDEN'] = true;
-                features[i].set('HIDDEN', true);
-                console.log("hidde");
+                var point = new ol.geom.Point( ol.proj.transform([features[i].getProperties().wifis[0]['longitude'], features[i].getProperties().wifis[0]['latitude'] ], 'EPSG:4326', 'EPSG:3857'));
+                features[i].setGeometry(point);
+              }
+            }
+          }
+        } else if(self.$scope.display_stations) {
+          var features = self.stationsSource.getFeatures();
+          for(var i in features) {
+            if ('station' in features[i].getProperties()) {
+              var hide = true;
+              var station = features[i].getProperties().station
+              if(pattern.test(station['bssid']) || pattern.test(station['manufacturer'])) {
+                hide = false;
+              }
+              
+              if(hide) {
+                var point = new ol.geom.Point( ol.proj.transform([0, 0 ], 'EPSG:4326', 'EPSG:3857'));
+                features[i].setGeometry(point);
+              } else {
+                var point = new ol.geom.Point( ol.proj.transform([station['longitude'], station['latitude'] ], 'EPSG:4326', 'EPSG:3857'));
+                features[i].setGeometry(point);
               }
             }
           }
@@ -184,8 +212,6 @@
       });
       
       this.changeHost();
-      
-      
     }
     
     update_status() {
@@ -226,7 +252,7 @@
             var point = new ol.geom.Point( ol.proj.transform([res["longitude"], res["latitude"]], 'EPSG:4326', 'EPSG:3857'));
             var station = new ol.Feature({
               geometry: point,
-              station : { bssid: i, manufacturer:response.data[i]['manufacturer'], date: res["date"], signal: res["signal"]}
+              station : { bssid: i, latitude:res["latitude"], longitude:res["longitude"], manufacturer:response.data[i]['manufacturer'], date: res["date"], signal: res["signal"]}
             });
             var pointStyle = new ol.style.Style({
               image: new ol.style.Circle({
@@ -318,6 +344,10 @@
           wifi.setStyle(pointStyle);
           this.wifisSource.addFeature( wifi );
         }
+        if(self.$location.path() != "")
+        {
+          self.$scope.search();
+        }
       });
     }
     
@@ -326,22 +356,10 @@
       this.update_status();
     }
     
-    Stylefunction (feature, resolution) {
-//       console.log("===");
-//       return null;
-//       var prop = feature.getProperties();
-//       console.log(prop);
-//       if (prop.HIDDEN)
-//         return;
-//       
-//       return style;
-    }
-    
-    
   }
   
-  app.controller('indexController', function($http,$scope) {
-    return new indexController($http,$scope);
+  app.controller('indexController', function($http,$scope,$location) {
+    return new indexController($http,$scope,$location);
   });
   
 })();
