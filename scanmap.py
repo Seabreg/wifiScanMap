@@ -147,8 +147,10 @@ class AirodumpPoller(threading.Thread):
     #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
     error_id = 0
     while self.running:
-      fix = self.application.has_fix()
-      lon, lat = self.application.getGPSData()
+      pos = self.application.getPosition()
+      fix = pos is not None
+      if fix:
+        lon, lat, source = self.application.getPosition()
       wifis = []
       stations = []
       probes = []
@@ -163,6 +165,7 @@ class AirodumpPoller(threading.Thread):
               if fix:
                 n["latitude"] = lat
                 n["longitude"] = lon
+                n["gps"] = source == 'gps'
               n["bssid"] = fields[0]
               n["essid"] = fields[13].replace("\r\n", "")
               n["mode"] = 'Master'
@@ -213,6 +216,7 @@ class AirodumpPoller(threading.Thread):
                   p['mobile'] = s['mobile']
                   p['essid'] = r.replace("\r\n", "")
                   if p['essid'] != "":
+                    p['ap'] = len(self.application.getWifisFromEssid(p['essid']))
                     if not self.is_too_old(s['last_seen'], default_airodump_age):
                       probes.append(p)
           except:
@@ -247,8 +251,10 @@ class BluetoothPoller(threading.Thread):
   def run(self):
     while self.running:
       cmd = ['hcitool', 'inq']
-      fix = self.application.has_fix()
-      lon, lat = self.application.getGPSData()
+      pos = self.application.getPosition()
+      fix = pos is not None
+      if fix:
+        lon, lat, source = pos
       
       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       process.wait()
@@ -261,6 +267,7 @@ class BluetoothPoller(threading.Thread):
           if fix:
             station["latitude"] = lat
             station["longitude"] = lon
+            station["gps"] = source == 'gps'
           station['bssid'] = row[0].strip()
           station['manufacturer'] = self.application.getManufacturer(station['bssid'])
           station['class'] = int(row[1].strip(), 0)
@@ -728,7 +735,10 @@ class Application (threading.Thread):
     def getStat(self):
       stat = {}
       q = '''select count(*) from wifis where encryption == 0'''
-      stat['open_count'] = self.fetchone(q)[0]
+      try:
+        stat['open_count'] = self.fetchone(q)[0]
+      except:
+        stat['open_count'] = 0
       
       q = '''select count(*) from wifis'''
       stat['total'] = self.fetchone(q)[0]
@@ -743,10 +753,10 @@ class Application (threading.Thread):
     
     def getWifisFromEssid(self, essid):
       where = ''
-      if isinstance(essid, collections.Sequence):
-        where = 'essid in ("%s")'%','.join(essid)
-      else:
+      if isinstance(essid, str):
         where = 'essid="%s"'%essid 
+      else:
+        where = 'essid in ("%s")'%','.join(essid)
       
       q='select * from wifis where %s'%where
       return self.fetchall(q)
@@ -845,7 +855,7 @@ class Application (threading.Thread):
     def createDatabase(self):
         print "initiallize db"
         self.query('''CREATE TABLE wifis
-            (bssid text, essid text, encryption bool, signal real, longitude real, latitude real, frequency real, channel int, mode text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+            (bssid text, essid text, encryption bool, signal real, longitude real, latitude real, frequency real, channel int, mode text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, gps boolean)''')
         self.query('''CREATE TABLE config
             (key text, value text)''')
         self.query('''CREATE TABLE gps
@@ -939,7 +949,8 @@ class Application (threading.Thread):
             if updated != 0:
                 self.log("updated bluetooth", updated)
             
-            self.db.commit()
+            with self.lock:
+              self.db.commit()
           except Exception as e:
             self.log("wifi", 'fail')
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -972,7 +983,7 @@ class Application (threading.Thread):
         q = '''select * from wifis where bssid="%s" and essid="%s"'''%(wifi["bssid"], wifi["essid"])
         res = self.fetchone(q)
         if res is None:
-            q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode, date) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", CURRENT_TIMESTAMP )'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"])
+            q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode, date, gps) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", CURRENT_TIMESTAMP, %s)'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], wifi["gps"])
             try:
               self.query(q)
               return True
@@ -982,7 +993,11 @@ class Application (threading.Thread):
         else:
             try:
               signal = res[3]
-              q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", date=CURRENT_TIMESTAMP where bssid="%s" and essid="%s"'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], wifi["bssid"], wifi["essid"])
+              gps = res[10]
+              where_source = ""
+              if not gps:
+                where_source = ' and gps = 0 ' 
+              q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", date=CURRENT_TIMESTAMP where bssid="%s" and essid="%s" %s'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], wifi["bssid"], wifi["essid"], where_source)
               if wifi["signal"] < signal:
                   self.query(q)
                   return True
@@ -1076,15 +1091,18 @@ class Application (threading.Thread):
         if res is not None:
             networks["encryption"] = res
             
-        lon, lat = self.getGPSData()
+        pos = self.getPosition()
+        fix = pos is not None
+        if fix:
+          lon, lat, source = pos
         wifis = []
         
         for i in range(0,len(networks["essid"])):
             n = {}
-            if self.has_fix():
-              if lat !=0 and lon != 0:
-                n["latitude"] = lat
-                n["longitude"] = lon
+            if fix:
+              n["latitude"] = lat
+              n["longitude"] = lon
+              n['gps'] = source == 'gps'
             n["bssid"] = networks["bssid"][i]
             n["essid"] = networks["essid"][i]
             n["mode"] = networks["mode"][i]
@@ -1110,10 +1128,14 @@ class Application (threading.Thread):
           return None
         return (res[0], res[1], self.haversine(0,0,res[2],res[3]))
            
-    def getGPSData(self):
+    def getPosition(self):
+      if self.gpspoller.has_fix():
         longitude = self.session.fix.longitude
         latitude = self.session.fix.latitude
-        return (longitude, latitude)
+        return (longitude, latitude, 'gps')
+      elif self.wifiPosition is not None:
+        return (self.wifiPosition[1], self.wifiPosition[0], 'wifi')
+      return None
             
     def getWirelessInterfacesList(self):
         networkInterfaces=[]		

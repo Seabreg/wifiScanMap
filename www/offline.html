@@ -40,7 +40,7 @@
           <img src="/img/probe.png" alt="probes-logo" />
           <ul id="current-probes">
             <li ng-repeat="probe in status.current.probes">
-              <div class="manufacturer">&nbsp;{{probe.manufacturer}}</div>
+              <div class="manufacturer"><a ng-if="probe.ap != 0" href="/#?wifis=true&terms={{probe.essid}}" >#{{probe.ap}}</a> &nbsp;{{probe.manufacturer}}</div>
               <div class="progress">
                 <div class="progress-bar" role="progressbar" aria-valuenow="70"
                 aria-valuemin="0" aria-valuemax="100" style="width:{{100+probe.signal}}%">
@@ -70,7 +70,7 @@
           <ul id="current-bluetooth-stations">
             <li ng-repeat="station in status.current.bluetooth">
               <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
-                  {{station.bssid}}
+                  {{station.name}}&nbsp;&nbsp;{{station.bssid}}
             </li>
           </ul>
         </div>

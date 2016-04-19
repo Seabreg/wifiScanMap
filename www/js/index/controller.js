@@ -9,14 +9,28 @@
       
       this.$scope = $scope;
       this.$scope.link_status = false;
-      this.$scope.display_wifis = true;
+      var search = this.$location.search()
+      if(jQuery.isEmptyObject(search)) {
+        this.$scope.display_wifis = true;
+        this.$scope.search_terms = ""
+      } else {
+        if(search.wifis != undefined) {
+          this.$scope.display_wifis = search.wifis == "true";
+        }
+        if(search.stations != undefined) {
+          this.$scope.display_stations = search.stations == "true";
+        }
+        if(search.terms != undefined) {
+          this.$scope.search_terms =  search.terms;
+        }
+      }
       this.$http = $http;
+
       
       this.position = new ol.source.Vector({});
       this.wifisSource = new ol.source.Vector({});
       this.stationsSource = new ol.source.Vector({});
-      
-      this.$scope.search_terms = this.$location.path().substring(1);
+
       
       this.map = new ol.Map({
         layers: [
@@ -117,23 +131,27 @@
 
       $scope.update_wifis = function() {
         if(self.$scope.display_wifis) {
+          $location.search('wifis', "true");
           self.update_wifis();
         } else {
+          $location.search('wifis', "false");
           self.wifisSource.clear();
         }
       }
       
       $scope.update_stations = function() {
         if(self.$scope.display_stations) {
+          $location.search('stations', "true");
           self.update_stations();
         } else {
+          $location.search('station', "false");
           self.stationsSource.clear();
         }
       }
       
       $scope.search = function() {
         
-        $location.path (self.$scope.search_terms);
+        $location.search('terms', self.$scope.search_terms);
         var pattern = new RegExp(self.$scope.search_terms,"i");
         if(self.$scope.display_wifis) {
           var features = self.wifisSource.getFeatures();
@@ -344,7 +362,7 @@
           wifi.setStyle(pointStyle);
           this.wifisSource.addFeature( wifi );
         }
-        if(self.$location.path() != "")
+        if(self.$location.search('terms') != undefined)
         {
           self.$scope.search();
         }
@@ -352,7 +370,7 @@
     }
     
     changeHost() {
-      this.update_wifis();
+      this.$scope.update_wifis();
       this.update_status();
     }
     

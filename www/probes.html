@@ -26,7 +26,7 @@
       <tr ng-repeat="probe in probes">
       <td class="count" >{{probe.count}}</td>
       <td>{{probe.essid}}</td>
-      <td>{{probe.ap}}</td>
+      <td><a href="/#?wifis=true&terms={{probe.essid}}" >{{probe.ap}}</a></td>
       </tr>
     </table>
   </div>
