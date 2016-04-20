@@ -24,14 +24,19 @@
       <th>Available</th>
       </tr>
       <tr ng-repeat="probe in probes">
-      <td class="count" >{{probe.count}}</td>
+      <td class="count" ><a href="/probes.html#?essid={{probe.essid}}" >{{probe.count}}</a></td>
       <td>{{probe.essid}}</td>
       <td><a href="/#?wifis=true&terms={{probe.essid}}" >{{probe.ap}}</a></td>
       </tr>
     </table>
     <table ng-if="terms != ''">
+    <tr>
+    <th>bssid</th>
+    <th>manufacturer</th>
+    <th>essid</th>
+    </tr>
     <tr ng-repeat="probe in probes">
-    <td>{{probe[0]}}</td><td>{{probe[1]}}</td>
+    <td><a href="/station.html#?bssid={{probe.bssid}}" >{{probe.bssid}}</a></td><td>{{probe.manufacturer}}</td><td>{{probe.essid}}</td>
     </tr>
     </table>
   </div>

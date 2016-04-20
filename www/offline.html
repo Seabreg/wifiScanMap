@@ -46,7 +46,7 @@
               <div class="progress">
                 <div class="progress-bar" role="progressbar" aria-valuenow="70"
                 aria-valuemin="0" aria-valuemax="100" style="width:{{100+probe.signal}}%">
-                  {{probe.essid}}
+                  <a href="/probes.html#?essid={{probe.essid}}">{{probe.essid}}<a>
                 </div>
               </div>
             </li>
@@ -61,7 +61,7 @@
               <div class="progress">
                 <div class="progress-bar" role="progressbar" aria-valuenow="70"
                 aria-valuemin="0" aria-valuemax="100" style="width:{{100+station.signal}}%">
-                  <a href="/#?stations=true&terms={{station.bssid}}" >{{station.bssid}}</a>
+                  <a href="/station.html#?bssid={{station.bssid}}" >{{station.bssid}}</a>
                 </div>
               </div>
             </li>
@@ -72,7 +72,7 @@
           <ul id="current-bluetooth-stations">
             <li ng-repeat="station in status.current.bluetooth">
               <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
-                  {{station.name}}&nbsp;&nbsp;<a href="/#?bt_stations=true&terms={{station.bssid}}" >{{station.bssid}}</a>
+                  {{station.name}}&nbsp;&nbsp;<a href="/station.html#?bssid={{station.bssid}}" >{{station.bssid}}</a>
             </li>
           </ul>
         </div>

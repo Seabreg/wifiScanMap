@@ -126,6 +126,9 @@ class AirodumpPoller(threading.Thread):
     else:
       self.sleep = 1
 
+  def is_mac_valid(self, mac):
+    return len(mac) == 17
+
   def date_from_str(self, _in):
     return datetime.datetime.strptime(_in.strip(), '%Y-%m-%d %H:%M:%S')
   
@@ -182,8 +185,9 @@ class AirodumpPoller(threading.Thread):
               
               n["encryption"] = fields[5].strip() != "OPN"
               if not self.is_too_old(fields[2], default_airodump_age):
-                if n["bssid"] not in self.application.ignore_bssid:
-                  wifis.append(n)
+                if self.is_mac_valid(n["bssid"]):
+                  if n["bssid"] not in self.application.ignore_bssid:
+                    wifis.append(n)
             except Exception as e:
               self.application.log("wifi", 'parse fail')
               exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -207,7 +211,8 @@ class AirodumpPoller(threading.Thread):
                 s['longitude'] = lon
               
               if not self.is_too_old(fields[2], default_airodump_age):
-                stations.append(s)
+                if self.is_mac_valid(s['bssid']):
+                  stations.append(s)
               
               if len(fields) == 7:
                 for r in fields[6].split(','):
@@ -220,7 +225,8 @@ class AirodumpPoller(threading.Thread):
                   if p['essid'] != "":
                     p['ap'] = len(self.application.getWifisFromEssid(p['essid']))
                     if not self.is_too_old(s['last_seen'], default_airodump_age):
-                      probes.append(p)
+                      if self.is_mac_valid(p['bssid']):
+                        probes.append(p)
           except:
             self.application.log("wifi", 'station parse fail')
       f.close()
@@ -588,6 +594,14 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       else:
         return self._get_file(os.path.join(basepath,"unknown.png"))
     
+    def _get_station(self, bssid):
+      self.send_response(200)
+      self.send_header('Content-type','application/json')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      station = self.server.app.getStation(bssid)
+      self.wfile.write(json.dumps(station))
+    
     def do_GET(self):
         path,params,args = self._parse_url()
         if ('..' in args) or ('.' in args):
@@ -617,6 +631,10 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             if params is not None:
               params = params.split('search=')[1]
             return self._get_bt_stations(params)
+        elif len(args) == 1 and args[0] == 'station.json':
+            if params is not None:
+              params = params.split('bssid=')[1]
+            return self._get_station(params)
         elif len(args) == 1 and args[0] == 'probes.json':
           if params is not None:
               params = params.split('essid=')[1]
@@ -810,11 +828,14 @@ class Application (threading.Thread):
       return self.fetchall(q)
       
     
-    def getStationsPerDay(self, limit = 0):
+    def getStationsPerDay(self, bssid = None, limit = 0):
       limit_str = ''
-      if limit_str != 0:
+      if limit != 0:
         limit_str = 'LIMIT %s'%limit
-      q='''select bssid, date(date), count(distinct date(date)) from stations group by bssid order by count(distinct date(date)) DESC, date %s'''%limit
+      where_bssid = ""
+      if bssid is not None:
+        where_bssid = ' where bssid = "%s"'%bssid
+      q='''select bssid, date(date), count(distinct date(date)) from stations %s group by bssid order by count(distinct date(date)) DESC, date %s'''%(where_bssid, limit_str)
       return self.fetchall(q)
     
     def getAllStations(self, search = None):
@@ -861,16 +882,23 @@ class Application (threading.Thread):
       return stations
     
     def getAllProbes(self, distinct = False, essid = None):
-      probes = {}
       essid_where = ""
       if essid is not None:
         essid_where = 'where essid = "%s"'%essid
       if not distinct:
         q = 'select * from probes %s order by essid'%essid_where
+        res = self.fetchall(q)
+        probes = []
+        for p in res:
+          probes.append({
+            'bssid': p[0],
+            'essid': p[1],
+            'manufacturer': self.getManufacturer(p[0])
+            })
+        return probes
       else:
         q = 'select P.essid, count(*) as probes_count, (select count(*) from wifis W where W.essid = P.essid) as wifis_count from probes P %s group by P.essid order by probes_count desc, wifis_count desc'%essid_where
-      return self.fetchall(q)
-      return probes
+        return self.fetchall(q)
     
     def getAll(self, date = None):
         wifis = {}
@@ -906,6 +934,51 @@ class Application (threading.Thread):
       data['stations'] = stations
       data['bluetooth'] = self.bluePoller.stations
       return data
+    
+    def getStation(self, bssid):
+      station = {
+        'traces': [],
+        'probes': [],
+        'wifis': [],
+        'manufacturer': self.getManufacturer(bssid),
+        }
+      q = '''select * from stations where bssid = "%s"'''%bssid
+      traces = self.fetchall(q)
+      if traces == []:
+        q = '''select * from bt_stations where bssid = "%s"'''%bssid
+        traces = self.fetchall(q)
+        for t in traces:
+          station['traces'].append({
+            'bssid' : t[1],
+            'class' : t[2],
+            'name' : t[3],
+            'latitude' : t[4],
+            'longitude' : t[5],
+            'date' : t[6]
+            })
+      else:
+        for t in traces:
+          station['traces'].append({
+            'bssid' : t[1],
+            'latitude' : t[2],
+            'longitude' : t[3],
+            'signal' : t[4],
+            'date' : t[5]
+            })
+      q = '''select * from probes where bssid = "%s"'''%bssid
+      
+      probes = self.fetchall(q)
+      search = []
+      for p in probes:
+        station['probes'].append(p[1])
+        search.append('"%s"'%p[1])
+        
+      q = '''select * from wifis where essid in (%s)'''%','.join(search)
+      station['wifis'] = self.fetchall(q)
+      
+      station['days'] = self.getStationsPerDay(bssid)
+      
+      return station
     
     def createDatabase(self):
         print "initiallize db"
