@@ -331,7 +331,7 @@ class Synchronizer(threading.Thread):
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
-    response = urllib2.urlopen(req, json.dumps(data), context=context)
+    response = urllib2.urlopen(req, json.dumps(data), context=self.context)
     print "probes synced"
     
     res = self.application.getAllStations('date > "%s"'%date)
@@ -342,7 +342,7 @@ class Synchronizer(threading.Thread):
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
-    response = urllib2.urlopen(req, json.dumps(data), context=context)
+    response = urllib2.urlopen(req, json.dumps(data), context=self.context)
     
     print "stations synced"
   
