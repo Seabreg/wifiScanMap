@@ -572,6 +572,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             network['channel'] = n[7]
             network['mode'] = n[8]
             network['date'] = n[9]
+            network['gps'] = n[10]
             self.server.app.update(network)
           
           for bssid in data['stations']:
