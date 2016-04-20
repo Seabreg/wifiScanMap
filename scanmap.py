@@ -575,22 +575,11 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             network['gps'] = n[10]
             self.server.app.update(network)
           
-          for bssid in data['stations']:
-            for n in data['stations'][bssid]["points"]:
-              station = {}
-              station['id'] = n[0]
-              station['bssid'] = n[1]
-              station['latitude'] = n[2]
-              station['longitude'] = n[3]
-              station['signal'] = n[4]
-              station['date'] = n[5]
-              self.server.app.update_station(station)
+          for station in data['stations']:
+            self.server.app.update_station(station)
           
           for probe in data['probes']:
-            p = {}
-            p['bssid'] = probe[0]
-            p['essid'] = probe[1]
-            self.server.app.update_probe(p)
+            self.server.app.update_probe(probe)
           
           self.wfile.write(json.dumps('ok'))
     
