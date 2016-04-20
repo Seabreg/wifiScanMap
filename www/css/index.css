@@ -1,10 +1,12 @@
  
  #map {
+ margin:0px;
  width:100%;
- height:100%;
+ height:90%;
  }
  
  #pannel {
+ margin:0px;
  position: absolute;
  top:0%;
  right:0;
@@ -18,6 +20,7 @@
  }
  
  #left-pannel {
+ margin:0px;
  display:none;
  position: absolute;
  top:0%;
@@ -46,12 +49,11 @@
   width:16px;
  }
  
- .progress-bar {
-   background-color:#CCE6FF;
-   color:black;
- }
- 
- #control, #current-wifis, #current-probes, #current-stations, #current-stations {
+ #current-wifis, #current-probes, #current-stations, #current-stations {
  overflow:auto;
  height:100px;
+ }
+ 
+ .ol-overlaycontainer-stopevent{
+  display:none; 
  }

@@ -165,7 +165,9 @@ class AirodumpPoller(threading.Thread):
               if fix:
                 n["latitude"] = lat
                 n["longitude"] = lon
-                n["gps"] = source == 'gps'
+                n["gps"] = 0
+                if source == 'gps':
+                  n["gps"] = 1
               n["bssid"] = fields[0]
               n["essid"] = fields[13].replace("\r\n", "")
               n["mode"] = 'Master'
@@ -321,7 +323,7 @@ class Synchronizer(threading.Thread):
         response = urllib2.urlopen(req, json.dumps(data), context=context)
         print "network synced"
         
-        res = self.application.getAllProbes()['probes']
+        res = self.application.getAllProbes()
         data = {
           'ap':[],
           'probes': res,
@@ -383,7 +385,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         }
       }
       
-      status["stat"] = self.server.app.getStat()
+      status["stat"] = self.server.app.getStats()
       status["current"] = self.server.app.getCurrent()
       
       if gps_status:
@@ -466,19 +468,30 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       data = self.server.app.getAllStations(search)
       self.wfile.write(json.dumps(data))
     
-    def _get_probes(self):
+    def _get_bt_stations(self, search = None):
       self.send_response(200)
       self.send_header('Content-type','application/json')
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
-      probes = self.server.app.getAllProbes(True)
-      data = []
-      for n in probes["probes"]:
-        s = {}
-        s["essid"] = n[0]
-        s["count"] = n[1]
-        s["ap"] = n[2]
-        data.append(s)
+      data = self.server.app.getAllBtStations(search)
+      self.wfile.write(json.dumps(data))
+    
+    def _get_probes(self, essid = None):
+      self.send_response(200)
+      self.send_header('Content-type','application/json')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      if essid is not None:
+        data = self.server.app.getAllProbes(False, essid)
+      else:
+        probes = self.server.app.getAllProbes(True)
+        data = []
+        for n in probes:
+          s = {}
+          s["essid"] = n[0]
+          s["count"] = n[1]
+          s["ap"] = n[2]
+          data.append(s)
       
       self.wfile.write(json.dumps(data))
     
@@ -500,6 +513,14 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.wfile.write(csv)
       #except:
         #self.send_response(500)
+    
+    def _get_stats(self):
+      self.send_response(200)
+      self.send_header('Content-type','application/json')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      stats = self.server.app.getStats(True)
+      self.wfile.write(json.dumps(stats))
     
     def setParam(self, key,value):
       if key == 'minAccuracy':
@@ -592,10 +613,16 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             if params is not None:
               params = params.split('search=')[1]
             return self._get_stations(params)
+        elif len(args) == 1 and args[0] == 'bt_stations.json':
+            if params is not None:
+              params = params.split('search=')[1]
+            return self._get_bt_stations(params)
         elif len(args) == 1 and args[0] == 'probes.json':
-            return self._get_probes()
-        elif len(args) == 1 and args[0] == 'current.json':
-            return self._get_current()
+          if params is not None:
+              params = params.split('essid=')[1]
+          return self._get_probes(params)
+        elif len(args) == 1 and args[0] == 'stats.json':
+            return self._get_stats()
         else:
             return self._get_file(path)
       
@@ -732,19 +759,40 @@ class Application (threading.Thread):
           print "==> %s %s %s"%(rssi, pkt.addr2, pkt.info)
           pkt.show()
     
-    def getStat(self):
-      stat = {}
+    def getStats(self, full = False):
+      stat = {'wifis': {}, 'stations':{}, 'bt_stations':{}, 'probes':{}}
       q = '''select count(*) from wifis where encryption == 0'''
       try:
-        stat['open_count'] = self.fetchone(q)[0]
+        stat['wifis']['open'] = self.fetchone(q)[0]
       except:
-        stat['open_count'] = 0
+        stat['wifis']['open'] = 0
       
       q = '''select count(*) from wifis'''
-      stat['total'] = self.fetchone(q)[0]
+      stat['wifis']['all'] = self.fetchone(q)[0]
       
-      q = '''select essid, count(*) as nb from wifis group by essid order by nb desc limit 15'''
-      stat['best'] = self.fetchall(q)
+      if full:
+        q = '''select essid, count(*) as count_essid from wifis group by essid order by count_essid desc limit 20'''
+        stat['wifis']['top'] = self.fetchall(q)
+        
+        q = '''select count(*) as count_manuf, substr(bssid,0,9) as manufacturer from wifis group by manufacturer order by count_manuf desc limit 20'''
+        stat['wifis']['manufacturer'] = []
+        for m in self.fetchall(q):
+          stat['wifis']['manufacturer'].append({
+            'count':  m[0],
+            'manufacturer': self.getManufacturer(m[1])
+            })
+        
+        q = '''select essid, count(*) as count_essid from probes group by essid order by count_essid desc limit 20'''
+        stat['probes']['top'] = self.fetchall(q)
+        
+        q = '''select count(distinct bssid) from stations'''
+        stat['stations']['all'] = self.fetchone(q)[0]
+        
+        q = '''select count(distinct bssid) from bt_stations'''
+        stat['bt_stations']['all'] = self.fetchone(q)[0]
+      
+      q = '''select count(distinct essid) from probes'''
+      stat['probes']['all'] = self.fetchone(q)[0]
       return stat
     
     def getLastUpdate(self):
@@ -769,52 +817,59 @@ class Application (threading.Thread):
       q='''select bssid, date(date), count(distinct date(date)) from stations group by bssid order by count(distinct date(date)) DESC, date %s'''%limit
       return self.fetchall(q)
     
-    #def getAllStations(self, search = None):
-      #stations = []
-      #search_where = ""
-      #if search is not None:
-        #search_where = "where %s"%search
-      
-      #q = 'select * from stations %s'%search_where
-      #return self.fetchall(q)
-    
     def getAllStations(self, search = None):
-      stations = {}
-      searchs = []
-      search_where = ''
+      stations = []
+      search_where = ""
       if search is not None:
-        if len(search.split(',')) != 1:
-          for s in search.split(','):
-            searchs.append( '"%s"'%s.strip())
-          search_where = 'where bssid in (%s)'%','.join(searchs)
-        else:
-          search_where = 'where bssid %s'%urllib.unquote(search)
-      q = "select distinct (bssid) from stations %s"%search_where
-      for s in self.fetchall(q):
-        bssid = s[0]
-        if not stations.has_key(bssid):
-          stations[bssid] = {}
-          stations[bssid]["manufacturer"] = self.getManufacturer(bssid)
-          stations[bssid]["points"] = []
-                    
-        q = 'select * from stations where bssid="%s"'%bssid
-        for r in self.fetchall(q):
-          if len(r) >= 5:
-            station = {}
-            station["latitude"] = r[2]
-            station["longitude"] = r[3]
-            station["signal"] = r[4]
-            station["date"] = r[5]
-            stations[bssid]["points"].append(station)
+        search_where = "where %s"%search
+      
+      q = 'select * from stations %s'%search_where
+      res = self.fetchall(q)
+      if res is not None:
+        for s in res:
+          station = {}
+          station['bssid'] = s[1]
+          station['latitude'] = s[2]
+          station['longitude'] = s[3]
+          station['signal'] = s[4]
+          station['date'] = s[5]
+          station['manufacturer'] = self.getManufacturer(station['bssid'])
+          stations.append(station)
+        
       return stations
     
-    def getAllProbes(self, distinct = False):
+    def getAllBtStations(self, search):
+      stations = []
+      search_where = ""
+      if search is not None:
+        search_where = "where %s"%search
+      
+      q = 'select * from bt_stations %s'%search_where
+      res = self.fetchall(q)
+      if res is not None:
+        for s in res:
+          station = {}
+          station['bssid'] = s[1]
+          station['class'] = s[2]
+          station['name'] = s[3]
+          station['latitude'] = s[4]
+          station['longitude'] = s[5]
+          station['date'] = s[6]
+          station['manufacturer'] = self.getManufacturer(station['bssid'])
+          stations.append(station)
+        
+      return stations
+    
+    def getAllProbes(self, distinct = False, essid = None):
       probes = {}
+      essid_where = ""
+      if essid is not None:
+        essid_where = 'where essid = "%s"'%essid
       if not distinct:
-        q = 'select * from probes order by essid'
+        q = 'select * from probes %s order by essid'%essid_where
       else:
-        q = 'select P.essid, count(*) as probes_count, (select count(*) from wifis W where W.essid = P.essid) as wifis_count from probes P group by P.essid order by probes_count desc, wifis_count desc'
-      probes["probes"] = self.fetchall(q)
+        q = 'select P.essid, count(*) as probes_count, (select count(*) from wifis W where W.essid = P.essid) as wifis_count from probes P %s group by P.essid order by probes_count desc, wifis_count desc'%essid_where
+      return self.fetchall(q)
       return probes
     
     def getAll(self, date = None):
@@ -827,14 +882,14 @@ class Application (threading.Thread):
         
         q = 'select avg(latitude), avg(longitude) from wifis %s group by date order by date desc limit 1'%date_where
         wifis["center"] = self.fetchone(q)
-        wifis["stat"] = self.getStat()
+        wifis["stat"] = self.getStats()
         return wifis
     
     def getLast(self):
         wifis = {}
         q = '''select * from wifis order by date desc, latitude, longitude limit 10'''
         wifis["networks"] = self.fetchall(q)
-        wifis["stat"] = self.getStat()
+        wifis["stat"] = self.getStats()
         return wifis
     
     def getCurrent(self):
@@ -983,7 +1038,10 @@ class Application (threading.Thread):
         q = '''select * from wifis where bssid="%s" and essid="%s"'''%(wifi["bssid"], wifi["essid"])
         res = self.fetchone(q)
         if res is None:
-            q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode, date, gps) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", CURRENT_TIMESTAMP, %s)'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], wifi["gps"])
+            gps = 0
+            if wifi["gps"]:
+              gps = 1
+            q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode, date, gps) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", CURRENT_TIMESTAMP, %s)'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], gps)
             try:
               self.query(q)
               return True
@@ -995,9 +1053,11 @@ class Application (threading.Thread):
               signal = res[3]
               gps = res[10]
               where_source = ""
+              gps = 1
               if not gps:
+                gps = 0
                 where_source = ' and gps = 0 ' 
-              q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", date=CURRENT_TIMESTAMP where bssid="%s" and essid="%s" %s'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], wifi["bssid"], wifi["essid"], where_source)
+              q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", gps="%s", date=CURRENT_TIMESTAMP where bssid="%s" and essid="%s" %s'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], gps, wifi["bssid"], wifi["essid"], where_source)
               if wifi["signal"] < signal:
                   self.query(q)
                   return True
@@ -1117,7 +1177,7 @@ class Application (threading.Thread):
             
     def getWifiPosition(self, wifis):
       bssid = []
-      if len(wifis) == 0:
+      if len(wifis) < 3:
         return None
       for n in wifis:
         bssid.append("\"%s\""%n["bssid"])

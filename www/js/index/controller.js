@@ -20,6 +20,9 @@
         if(search.stations != undefined) {
           this.$scope.display_stations = search.stations == "true";
         }
+        if(search.bt_stations != undefined) {
+          this.$scope.display_bt_stations = search.bt_stations == "true";
+        }
         if(search.terms != undefined) {
           this.$scope.search_terms =  search.terms;
         }
@@ -30,6 +33,7 @@
       this.position = new ol.source.Vector({});
       this.wifisSource = new ol.source.Vector({});
       this.stationsSource = new ol.source.Vector({});
+      this.bt_stationsSource = new ol.source.Vector({});
 
       
       this.map = new ol.Map({
@@ -45,14 +49,17 @@
         }),
         new ol.layer.Vector({
           source: this.stationsSource,
+        }),
+        new ol.layer.Vector({
+          source: this.bt_stationsSource,
         })
         ],
         target: 'map',
-        controls: ol.control.defaults({
-          attributionOptions: /** @type {olx.control.AttributionOptions} */ ({
-            collapsible: false
-          })
-        }),
+//         controls: ol.control.defaults({
+//           attributionOptions: /** @type {olx.control.AttributionOptions} */ ({
+//             collapsible: false
+//           })
+//         }),
         view: new ol.View({
           center: ol.proj.transform([-0.576901, 44.837325 ], 'EPSG:4326', 'EPSG:3857'),
                           zoom: 15
@@ -144,8 +151,18 @@
           $location.search('stations', "true");
           self.update_stations();
         } else {
-          $location.search('station', "false");
+          $location.search('stations', "false");
           self.stationsSource.clear();
+        }
+      }
+      
+      $scope.update_bt_stations = function() {
+        if(self.$scope.display_bt_stations) {
+          $location.search('bt_stations', "true");
+          self.update_bt_stations();
+        } else {
+          $location.search('bt_stations', "false");
+          self.bt_stationsSource.clear();
         }
       }
       
@@ -192,7 +209,27 @@
               }
             }
           }
+        }  else if(self.$scope.display_bt_stations) {
+          var features = self.bt_stationsSource.getFeatures();
+          for(var i in features) {
+            if ('station' in features[i].getProperties()) {
+              var hide = true;
+              var station = features[i].getProperties().station
+              if(pattern.test(station['bssid']) || pattern.test(station['manufacturer'])) {
+                hide = false;
+              }
+              
+              if(hide) {
+                var point = new ol.geom.Point( ol.proj.transform([0, 0 ], 'EPSG:4326', 'EPSG:3857'));
+                features[i].setGeometry(point);
+              } else {
+                var point = new ol.geom.Point( ol.proj.transform([station['longitude'], station['latitude'] ], 'EPSG:4326', 'EPSG:3857'));
+                features[i].setGeometry(point);
+              }
+            }
+          }
         }
+        
       };
       
       this.map.getViewport().addEventListener('click', function (e) {
@@ -217,7 +254,7 @@
           } else {
             if ('station' in feature.getProperties()) {
               var station = feature.getProperties().station;
-              html += "<li>"+ station["date"] + ' ' +station["manufacturer"] +"</li>";
+              html += "<li>"+ station["date"] + '<br/>' + station["name"] + ' ' +station["manufacturer"] +"</li>";
             }
           }
           
@@ -243,6 +280,7 @@
           var latitude = response.data['position']['wifi']['latitude'];
           var point = new ol.geom.Point( ol.proj.transform([longitude, latitude ], 'EPSG:4326', 'EPSG:3857'));
           self.wifi.setGeometry(point);
+          self.$scope.status['position']['wifi']['accuracy'] = Math.round(self.$scope.status['position']['wifi']['accuracy']);
         }
         
         if(response.data['position']['gps']['fix']) {
@@ -250,6 +288,7 @@
           var latitude = response.data['position']['gps']['latitude'];
           var point = new ol.geom.Point( ol.proj.transform([longitude, latitude ], 'EPSG:4326', 'EPSG:3857'));
           self.gps.setGeometry(point);
+          self.$scope.status['position']['gps']['accuracy'] = Math.round(self.$scope.status['position']['gps']['accuracy']);
         }
         setTimeout(self.update_status.bind( self ),1000);
       }, function errorCallback(response) {
@@ -262,15 +301,18 @@
     update_stations() {
       this.stationsSource.clear();
       this.$http.get(this.host + '/stations.json').then(response => {
-        this.stations = response.data
+        this.colors = {};
+        
         for(var i in response.data) {
-          var color = '#'+Math.random().toString(16).slice(-3);
-          for(var r in response.data[i]['points']) {
-            var res = response.data[i]['points'][r]
-            var point = new ol.geom.Point( ol.proj.transform([res["longitude"], res["latitude"]], 'EPSG:4326', 'EPSG:3857'));
+          
+          if(this.colors[response.data[i]['bssid']] == undefined) {
+            this.colors[response.data[i]['bssid']] = '#'+Math.random().toString(16).slice(-3);
+          }
+
+          var point = new ol.geom.Point( ol.proj.transform([response.data[i]["longitude"], response.data[i]["latitude"]], 'EPSG:4326', 'EPSG:3857'));
             var station = new ol.Feature({
               geometry: point,
-              station : { bssid: i, latitude:res["latitude"], longitude:res["longitude"], manufacturer:response.data[i]['manufacturer'], date: res["date"], signal: res["signal"]}
+              station : response.data[i]
             });
             var pointStyle = new ol.style.Style({
               image: new ol.style.Circle({
@@ -278,7 +320,7 @@
                 //                 color: color
                 //               }),
                 stroke: new ol.style.Stroke({
-                  color: color,
+                  color: this.colors[response.data[i]['bssid']],
                   width: 2
                 }),
                 radius: 4,
@@ -286,7 +328,47 @@
             })
             station.setStyle(pointStyle);
             this.stationsSource.addFeature( station );
+        }
+        if(self.$location.search('terms') != undefined)
+        {
+          self.$scope.search();
+        }
+      });
+    }
+    
+    update_bt_stations() {
+      this.bt_stationsSource.clear();
+      this.$http.get(this.host + '/bt_stations.json').then(response => {
+        this.colors = {};
+        
+        for(var i in response.data) {
+          
+          if(this.colors[response.data[i]['bssid']] == undefined) {
+            this.colors[response.data[i]['bssid']] = '#'+Math.random().toString(16).slice(-3);
           }
+          var point = new ol.geom.Point( ol.proj.transform([response.data[i]["longitude"], response.data[i]["latitude"]], 'EPSG:4326', 'EPSG:3857'));
+          var station = new ol.Feature({
+            geometry: point,
+            station : response.data[i]
+          });
+          var pointStyle = new ol.style.Style({
+            image: new ol.style.Circle({
+              //               fill: new ol.style.Fill({
+              //                 color: color
+              //               }),
+              stroke: new ol.style.Stroke({
+                color: this.colors[response.data[i]['bssid']],
+                width: 2
+              }),
+              radius: 4,
+            })
+          })
+          station.setStyle(pointStyle);
+          this.bt_stationsSource.addFeature( station );
+        }
+        if(self.$location.search('terms') != undefined)
+        {
+          self.$scope.search();
         }
       });
     }
@@ -371,6 +453,8 @@
     
     changeHost() {
       this.$scope.update_wifis();
+      this.$scope.update_stations();
+      this.$scope.update_bt_stations();
       this.update_status();
     }
     

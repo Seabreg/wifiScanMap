@@ -9,9 +9,9 @@
 <script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/index/controller.js"></script>
+<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
 <link rel="stylesheet" href="/css/main.css" />
 <link rel="stylesheet" href="/css/index.css" />
-<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
 </head> 
 <body ng-app="ScanMap"> 
 	<div ng-controller="indexController">
@@ -27,10 +27,13 @@
       <div id="control">
 <!--         <input type="text" name="host" ng-model="host" > <button ng-click="changeHost()" >Change</button> -->
       <div ng-class="{'label label-success':link_status, 'label label-danger':!link_status}" >Service</div>
-      <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps {{parseInt(status.position.gps.accuracy)}}m</div>
-          <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi {{parseInt(status.position.wifi.accuracy)}}m</div><br/>
+      <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps {{status.position.gps.accuracy}}m</div>
+          <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi {{status.position.wifi.accuracy}}m</div><br/>
       <button ng-click="center()" >Center</button> <br/>
-      wifis: {{status.stat.total}}, {{status.stat.open_count}} open<br/>
+      wifis: {{status.stat.wifis.all}}, {{status.stat.wifis.open}} open, {{status.stat.probes.all}} probes<br/>
+      
+      <a href="/offline.html">Offline</a>
+      <a href="/probes.html">Probes</a>
       
       <input type="text" ng-model="search_terms" /><button ng-click="search()" >Search</button><br/>
       <label>Wifis</label>
@@ -39,7 +42,8 @@
       <input type="checkbox" ng-model="display_probes" ng-change="update_probes()" /><br/>
       <label>Stations</label>
       <input type="checkbox" ng-model="display_stations" ng-change="update_stations()" /><br/>
-      
+      <label>BT Stations</label>
+      <input type="checkbox" ng-model="display_bt_stations" ng-change="update_bt_stations()" /><br/>
       
       </div>
         <hr/>

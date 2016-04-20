@@ -10,14 +10,14 @@
 <script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/probes/controller.js"></script>
+<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
 <link rel="stylesheet" href="/css/main.css" />
 <link rel="stylesheet" href="/css/probes.css" />
-<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
 </head> 
 <body ng-app="ScanMap">
   <div ng-controller="probesController">
     <h1>Probes</h1>
-    <table>
+    <table ng-if="terms == ''">
       <tr>
       <th  class="count">Request</th>
       <th>Essid</th>
@@ -28,6 +28,11 @@
       <td>{{probe.essid}}</td>
       <td><a href="/#?wifis=true&terms={{probe.essid}}" >{{probe.ap}}</a></td>
       </tr>
+    </table>
+    <table ng-if="terms != ''">
+    <tr ng-repeat="probe in probes">
+    <td>{{probe[0]}}</td><td>{{probe[1]}}</td>
+    </tr>
     </table>
   </div>
 </body> 

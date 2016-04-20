@@ -9,17 +9,19 @@
 <script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/offline/controller.js"></script>
+<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
 <link rel="stylesheet" href="/css/main.css" />
 <link rel="stylesheet" href="/css/offline.css" />
-<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
 </head> 
 <body ng-app="ScanMap"> 
 	<div ng-controller="offlineController">
           <div ng-class="{'label label-success':link_status, 'label label-danger':!link_status}" >Service</div>
           
-          <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps {{parseInt(status.position.gps.accuracy)}}m</div>
-          <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi {{parseInt(status.position.wifi.accuracy)}}m</div><br/>
-          wifis: {{status.stat.total}}, {{status.stat.open_count}} open
+          <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps {{status.position.gps.accuracy}}m</div>
+          <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi {{status.position.wifi.accuracy}}m</div><br/>
+          <button ng-click="play_pause()" >Play/pause</button><br/>
+          
+          wifis: {{status.stat.wifis.all}}, {{status.stat.wifis.open}} open, {{status.stat.probes.all}} probes
         <div>
           <div id="currentWifisContainer" >
             <img src="/img/wifi-ap.png" alt="wifi-logo" />
@@ -30,7 +32,7 @@
               <div class="progress">
               <div class="progress-bar" role="progressbar" aria-valuenow="70"
               aria-valuemin="0" aria-valuemax="100" style="width:{{100+wifi.signal}}%">
-                {{wifi.essid}}
+                <a href="/#?wifis=true&terms={{wifi.essid}}" >{{wifi.essid}}</a>
               </div>
             </div>
               </li>
@@ -59,7 +61,7 @@
               <div class="progress">
                 <div class="progress-bar" role="progressbar" aria-valuenow="70"
                 aria-valuemin="0" aria-valuemax="100" style="width:{{100+station.signal}}%">
-                  {{station.bssid}}
+                  <a href="/#?stations=true&terms={{station.bssid}}" >{{station.bssid}}</a>
                 </div>
               </div>
             </li>
@@ -70,7 +72,7 @@
           <ul id="current-bluetooth-stations">
             <li ng-repeat="station in status.current.bluetooth">
               <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
-                  {{station.name}}&nbsp;&nbsp;{{station.bssid}}
+                  {{station.name}}&nbsp;&nbsp;<a href="/#?bt_stations=true&terms={{station.bssid}}" >{{station.bssid}}</a>
             </li>
           </ul>
         </div>

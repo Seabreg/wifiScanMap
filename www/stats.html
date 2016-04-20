@@ -1,0 +1,43 @@
+ 
+<!DOCTYPE html> 
+<html>
+<head> 
+<title>WifiScanMap | stats</title>  
+<script src="/js/components/jquery/dist/jquery.js"></script>
+<script src="/js/components/angular/angular.js"></script>
+<script src="/js/components/ol3/ol.js"></script>
+<script src="/js/components/jquery-ui/jquery-ui.min.js"></script>
+<script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/stats/controller.js"></script>
+<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
+<link rel="stylesheet" href="/css/main.css" />
+<link rel="stylesheet" href="/css/stats.css" />
+</head> 
+<body ng-app="ScanMap"> 
+	<div ng-controller="statsController">
+          <div ng-class="{'label label-success':link_status, 'label label-danger':!link_status}" >Service</div><br/>
+          wifis: {{stats.wifis.all}}<br/>
+          {{stats.wifis.open}} open<br/>
+          {{stats.probes.all}} probes<br/>
+          {{stats.stations.all}} stations<br/>
+          {{stats.bt_stations.all}} bt_stations<br/>
+          
+          <h2>wifis</h2>
+          <h3>Top essid</h3>
+          <ul>
+            <li ng-repeat="wifi in stats.wifis.top" >{{wifi[1]}} {{wifi[0]}}</li>
+          </ul>
+          
+          <h3>Top manufacturer</h3>
+          <ul>
+            <li ng-repeat="wifi in stats.wifis.manufacturer" >{{wifi.count}} {{wifi.manufacturer}}</li>
+          </ul>
+          
+          <h2>Top Probes</h2>
+          <ul>
+            <li ng-repeat="probe in stats.probes.top" >{{probe[1]}} {{probe[0]}}</li>
+          </ul>
+    </div>
+</body>
+</html>
