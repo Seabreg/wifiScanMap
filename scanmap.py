@@ -257,38 +257,41 @@ class BluetoothPoller(threading.Thread):
       self.sleep = 1
   
   def run(self):
-    while self.running:
-      cmd = ['hcitool', 'inq']
-      pos = self.application.getPosition()
-      fix = pos is not None
-      if fix:
-        lon, lat, source = pos
-      
-      process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      process.wait()
-      (stdoutdata, stderrdata) = process.communicate();
-      res = re.findall("\s(.*)\sclock.*\sclass:\s(.*)", stdoutdata)
-      stations = []
-      if res is not None:
-        for row in res:
-          station = {}
-          if fix:
-            station["latitude"] = lat
-            station["longitude"] = lon
-            station["gps"] = source == 'gps'
-          station['bssid'] = row[0].strip()
-          station['manufacturer'] = self.application.getManufacturer(station['bssid'])
-          station['class'] = int(row[1].strip(), 0)
-          cmd = ['hcitool', 'name', station['bssid']]
-          process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-          process.wait()
-          (stdoutdata, stderrdata) = process.communicate();
-          station['name'] = stdoutdata
-          stations.append(station)
+    try:
+      while self.running:
+        cmd = ['hcitool', 'inq']
+        pos = self.application.getPosition()
+        fix = pos is not None
+        if fix:
+          lon, lat, source = pos
+        
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process.wait()
+        (stdoutdata, stderrdata) = process.communicate();
+        res = re.findall("\s(.*)\sclock.*\sclass:\s(.*)", stdoutdata)
+        stations = []
+        if res is not None:
+          for row in res:
+            station = {}
+            if fix:
+              station["latitude"] = lat
+              station["longitude"] = lon
+              station["gps"] = source == 'gps'
+            station['bssid'] = row[0].strip()
+            station['manufacturer'] = self.application.getManufacturer(station['bssid'])
+            station['class'] = int(row[1].strip(), 0)
+            cmd = ['hcitool', 'name', station['bssid']]
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process.wait()
+            (stdoutdata, stderrdata) = process.communicate();
+            station['name'] = stdoutdata
+            stations.append(station)
     
-      with self.lock:
-        self.stations = stations
-      time.sleep(self.sleep)
+        with self.lock:
+          self.stations = stations
+        time.sleep(self.sleep)
+    except:
+      self.application.log('bluetooth', 'error')
         
   def getNetworks(self):
     with self.lock:
@@ -304,53 +307,58 @@ class Synchronizer(threading.Thread):
     threading.Thread.__init__(self)
     self.running = True #setting the thread running to true
     self.base = uri
+    self.context = ssl._create_unverified_context()
 
+  def synchronize(self, date = None):
+    if date is None:
+      date = '1980-01-01 00:00:00'
+    res = self.application.getAll(date)['networks']
+    data = {
+      'ap':res,
+      'probes': [],
+      'stations': []
+    }
+    req = urllib2.Request('%s/upload.json'%self.base)
+    req.add_header('Content-Type', 'application/json')
+    response = urllib2.urlopen(req, json.dumps(data), context=self.context)
+    print "network synced"
+    
+    res = self.application.getAllProbes()
+    data = {
+      'ap':[],
+      'probes': res,
+      'stations': []
+    }
+    req = urllib2.Request('%s/upload.json'%self.base)
+    req.add_header('Content-Type', 'application/json')
+    response = urllib2.urlopen(req, json.dumps(data), context=context)
+    print "probes synced"
+    
+    res = self.application.getAllStations('date > "%s"'%date)
+    data = {
+      'ap':[],
+      'probes': [],
+      'stations': res
+    }
+    req = urllib2.Request('%s/upload.json'%self.base)
+    req.add_header('Content-Type', 'application/json')
+    response = urllib2.urlopen(req, json.dumps(data), context=context)
+    
+    print "stations synced"
+  
   def run(self):
     time.sleep(5)
     while self.running:
       
       try:
-        context = ssl._create_unverified_context()
-        raw = urllib2.urlopen("%s/status.json"%self.base, context=context)
+        raw = urllib2.urlopen("%s/status.json"%self.base, context=self.context)
         date = json.loads(raw.read())["sync"]
         if date is not None:
           date = date[0].split('.')[0]
         else:
-          date = '1980-01-01 00:00:00'
+          date = None
+        self.synchronize(date)
         
-        res = self.application.getAll(date)['networks']
-        data = {
-          'ap':res,
-          'probes': [],
-          'stations': []
-        }
-        req = urllib2.Request('%s/upload.json'%self.base)
-        req.add_header('Content-Type', 'application/json')
-        response = urllib2.urlopen(req, json.dumps(data), context=context)
-        print "network synced"
-        
-        res = self.application.getAllProbes()
-        data = {
-          'ap':[],
-          'probes': res,
-          'stations': []
-        }
-        req = urllib2.Request('%s/upload.json'%self.base)
-        req.add_header('Content-Type', 'application/json')
-        response = urllib2.urlopen(req, json.dumps(data), context=context)
-        print "probes synced"
-        
-        res = self.application.getAllStations('date > "%s"'%date)
-        data = {
-          'ap':[],
-          'probes': [],
-          'stations': res
-        }
-        req = urllib2.Request('%s/upload.json'%self.base)
-        req.add_header('Content-Type', 'application/json')
-        response = urllib2.urlopen(req, json.dumps(data), context=context)
-        
-        print "stations synced"
       except:
         print "Sync unavailable"
       time.sleep(60)
@@ -602,6 +610,14 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       station = self.server.app.getStation(bssid)
       self.wfile.write(json.dumps(station))
     
+    def _get_synchronize(self):
+      self.send_response(200)
+      self.send_header('Content-type','application/json')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      sync = self.server.app.synchronizer.synchronize()
+      self.wfile.write(json.dumps(sync))
+    
     def do_GET(self):
         path,params,args = self._parse_url()
         if ('..' in args) or ('.' in args):
@@ -623,6 +639,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             return self._get_csv()
         elif len(args) == 1 and args[0] == 'wifis.json':
             return self._get_wifis()
+        elif len(args) == 1 and args[0] == 'synchronize.json':
+            return self._get_synchronize()
         elif len(args) == 1 and args[0] == 'stations.json':
             if params is not None:
               params = params.split('search=')[1]
