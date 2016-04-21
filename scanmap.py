@@ -64,7 +64,6 @@ class Application (threading.Thread):
         self.stopped = False
         self.session = gps(mode=WATCH_ENABLE)
         self.ignore_bssid = []
-        self.network_count = 0
         self.interface = ''
         self.airodump = None
         self.wifiPosition = None
@@ -369,7 +368,23 @@ class Application (threading.Thread):
         search.append('"%s"'%p[1])
         
       q = '''select * from wifis where essid in (%s)'''%','.join(search)
-      station['wifis'] = self.fetchall(q)
+      wifis = []
+      
+      for n in self.fetchall(q):
+        network = {}
+        network['bssid'] = n[0]
+        network['essid'] = n[1]
+        network['encryption'] = n[2]
+        network['signal'] = n[3]
+        network['longitude'] = n[4]
+        network['latitude'] = n[5]
+        network['frequency'] = n[6]
+        network['channel'] = n[7]
+        network['mode'] = n[8]
+        network['date'] = n[9]
+        wifis.append(network)
+      
+      station['wifis'] = wifis
       
       station['days'] = self.getStationsPerDay(bssid)
       
@@ -434,7 +449,6 @@ class Application (threading.Thread):
             if updated != 0:
                 self.log("updated wifi", updated)
                 self.updates_count['wifis'] += updated
-            self.network_count = len(wifis)
             self.wifiPosition = self.getWifiPosition(wifis)
             
             if self.args.monitor and not USE_SCAPY:

@@ -35,14 +35,6 @@
  #probe-list {
  }
  
- .open {
-   color:green; 
- }
- 
- .secure {
-   color:red; 
- }
- 
  .manufacturer-logo {
 /*   float:left;  */
   height:16px;

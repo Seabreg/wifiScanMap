@@ -27,7 +27,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       gps_status = self.server.app.has_fix(True)
       wifi_status = self.server.app.wifiPosition is not None
       status = {
-      'wifi': {'updated':self.server.app.last_updated},
+      'wifi': {'updated':self.server.app.updates_count},
       'position': {
         'gps':{
           'fix':(gps_status)

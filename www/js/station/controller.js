@@ -138,25 +138,28 @@
                                                        return feature;
                                                      });
         if (feature) {
+          console.log(feature.getProperties());
           var html = "";
-          if ('wifis' in feature.getProperties()) {
-            var wifis = feature.getProperties().wifis;
-            for(var i in wifis) {
-              var encryption = "secure";
-              if(wifis[i]["encryption"] == 0) {
-                encryption = "open";
-              }
-              html += "<li class="+encryption+" >"+ wifis[i]["essid"] +"</li>";
+          if ('wifi' in feature.getProperties()) {
+            var wifi = feature.getProperties().wifi;
+            var encryption = "secure";
+            if(wifi["encryption"] == 0) {
+              encryption = "open";
             }
+              html += "<li class="+encryption+" >"+ wifi["essid"] +"</li>";
           } else {
-            if ('station' in feature.getProperties()) {
-              var station = feature.getProperties().station;
-              html += "<li>"+ station["date"] + '<br/>' + station["name"] + ' ' +station["manufacturer"] +"</li>";
+            if ('trace' in feature.getProperties()) {
+              var trace = feature.getProperties().trace;
+              name = ''
+              if(trace["name"] != undefined) {
+                name = trace["name"]
+              }
+              html += "<li>"+ trace["date"] + '<br/>' + name + ' ' +feature.getProperties().manufacturer +"</li>";
             }
           }
           
          
-          $("#wifis-list").html(html);
+         $("#left-pannel").html(html);
           $("#left-pannel").show();
         } else {
           $("#left-pannel").hide(); 
@@ -206,7 +209,8 @@
             var point = new ol.geom.Point( ol.proj.transform([trace['longitude'], trace['latitude']], 'EPSG:4326', 'EPSG:3857'));
             var station = new ol.Feature({
               geometry: point,
-              station : trace
+              trace : trace,
+              manufacturer: response.data['manufacturer']
             });
             var pointStyle = new ol.style.Style({
               image: new ol.style.Circle({
@@ -228,10 +232,10 @@
           this.wifisSource.clear();
           for(var i in response.data['wifis']) {
             var wifi = response.data['wifis'][i]
-            var point = new ol.geom.Point( ol.proj.transform([wifi[4], wifi[5]], 'EPSG:4326', 'EPSG:3857'));
-            var station = new ol.Feature({
+            var point = new ol.geom.Point( ol.proj.transform([wifi['longitude'], wifi['latitude']], 'EPSG:4326', 'EPSG:3857'));
+            var ap = new ol.Feature({
               geometry: point,
-              station : trace
+              wifi : wifi
             });
             var pointStyle = new ol.style.Style({
               image: new ol.style.Circle({
@@ -245,8 +249,8 @@
                 radius: 4,
               })
             })
-            station.setStyle(pointStyle);
-            this.wifisSource.addFeature( station );
+            ap.setStyle(pointStyle);
+            this.wifisSource.addFeature( ap );
           }
         }, function errorCallback(response) {
         });

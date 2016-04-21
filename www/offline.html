@@ -24,7 +24,7 @@
           wifis: {{status.stat.wifis.all}}, {{status.stat.wifis.open}} open, {{status.stat.probes.all}} probes
         <div>
           <div id="currentWifisContainer" >
-            <img src="/img/wifi-ap.png" alt="wifi-logo" />
+            <img src="/img/wifi-ap.png" alt="wifi-logo" /> {{status.updates_count.wifis}}
             <ul id="current-wifis">
               <li ng-repeat="wifi in status.current.wifis">
               <div class="manufacturer">&nbsp;{{wifi.manufacturer}}</div>
@@ -39,7 +39,7 @@
             </ul>
           </div>
           <div id="currentProbesContainer" >
-          <img src="/img/probe.png" alt="probes-logo" />
+          <img src="/img/probe.png" alt="probes-logo" /> {{status.updates_count.probes}}
           <ul id="current-probes">
             <li ng-repeat="probe in status.current.probes">
               <div class="manufacturer"><a ng-if="probe.ap != 0" href="/#?wifis=true&terms={{probe.essid}}" >#{{probe.ap}}</a> &nbsp;{{probe.manufacturer}}</div>
@@ -53,7 +53,7 @@
           </ul>
           </div>
           <div id="currentStationsContainer" >
-          <img src="/img/station.png" alt="stations-logo" />
+          <img src="/img/station.png" alt="stations-logo" /> {{status.updates_count.stations}}
           <ul id="current-stations">
             <li ng-repeat="station in status.current.stations">
               <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
@@ -68,7 +68,7 @@
           </ul>
         </div>
         <div id="currentStationsContainer" >
-          <img src="/img/bluetooth.png" alt="bluetooth-stations-logo" />
+          <img src="/img/bluetooth.png" alt="bluetooth-stations-logo" /> {{status.updates_count.bt_stations}}
           <ul id="current-bluetooth-stations">
             <li ng-repeat="station in status.current.bluetooth">
               <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>

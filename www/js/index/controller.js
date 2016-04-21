@@ -254,7 +254,11 @@
           } else {
             if ('station' in feature.getProperties()) {
               var station = feature.getProperties().station;
-              html += "<li>"+ station["date"] + '<br/>' + station["name"] + ' ' +station["manufacturer"] +"</li>";
+              name = ''
+              if(station["name"] != undefined) {
+                name = station["name"]
+              }
+              html += "<li>"+ station["date"] + '<br/>' + name + ' ' +station["manufacturer"] +"</li>";
             }
           }
           
