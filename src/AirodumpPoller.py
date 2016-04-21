@@ -1,0 +1,142 @@
+import subprocess
+import os
+import threading
+from threading import Lock
+import datetime
+import time
+import sys
+import shutil
+
+default_airodump_age = 5
+
+class AirodumpPoller(threading.Thread):
+  def __init__(self, app):
+    threading.Thread.__init__(self)
+    self.application = app
+    self.lock = Lock()
+    self.networks = []
+    self.stations = []
+    self.probes = []
+    self.running = True #setting the thread running to true
+    
+    if self.application.args.sleep is not None:
+      self.sleep = int(self.application.args.sleep)
+    else:
+      self.sleep = 1
+
+  def is_mac_valid(self, mac):
+    return len(mac) == 17
+
+  def date_from_str(self, _in):
+    return datetime.datetime.strptime(_in.strip(), '%Y-%m-%d %H:%M:%S')
+  
+  def is_too_old(self, date, sleep):
+    diff = datetime.datetime.now() - self.date_from_str(date)
+    return diff.total_seconds() > sleep
+  
+  def run(self):            
+    FNULL = open(os.devnull, 'w')
+    prefix= '/tmp/wifi-dump'
+    os.system("rm %s*"%prefix)
+    cmd = ['airodump-ng', '-w', prefix,  '--berlin', str(self.sleep), self.application.interface]
+    process = subprocess.Popen(cmd, stderr=FNULL)
+    f = open("/var/run/wifimap-airodump", 'w')
+    f.write('%s'%process.pid)
+    f.close()
+    
+    time.sleep(10)
+    #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
+    error_id = 0
+    while self.running:
+      pos = self.application.getPosition()
+      fix = pos is not None
+      if fix:
+        lon, lat, source = self.application.getPosition()
+      wifis = []
+      stations = []
+      probes = []
+      csv_path = "%s-01.csv"%prefix
+      f = open(csv_path)
+      for line in f:
+        fields = line.split(', ')
+        if len(fields) >= 13:
+          if(fields[0] != 'BSSID'):
+            n = {}
+            try:
+              if fix:
+                n["latitude"] = lat
+                n["longitude"] = lon
+                n["gps"] = 0
+                if source == 'gps':
+                  n["gps"] = 1
+              n["bssid"] = fields[0]
+              n["essid"] = fields[13].replace("\r\n", "")
+              n["mode"] = 'Master'
+              n["channel"] = fields[3]
+              n["frequency"] = -1
+              n["manufacturer"] = self.application.getManufacturer(n["bssid"])
+              n["mobile"] = self.application.is_mobile(n["manufacturer"])
+              n["signal"] = float(fields[8])
+              
+              if(n["signal"] >= -1):
+                n["signal"] = -100
+              
+              n["encryption"] = fields[5].strip() != "OPN"
+              if not self.is_too_old(fields[2], default_airodump_age):
+                if self.is_mac_valid(n["bssid"]):
+                  if n["bssid"] not in self.application.ignore_bssid:
+                    wifis.append(n)
+            except Exception as e:
+              self.application.log("wifi", 'parse fail')
+              exc_type, exc_obj, exc_tb = sys.exc_info()
+              fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+              print(exc_type, fname, exc_tb.tb_lineno)
+              self.application.log('airodump' , fields)
+              self.application.log('airodump' , n)
+              shutil.copyfile(csv_path, "/tmp/wifimap-%s.csv"%error_id)
+              error_id += 1
+        elif len(fields) == 7 or len(fields) == 6:
+          try:
+            if(fields[0] != 'Station MAC'):
+              s = {}
+              s['bssid'] = fields[0]
+              s['last_seen'] = fields[2]
+              s['signal'] = float(fields[3])
+              s["manufacturer"] = self.application.getManufacturer(s["bssid"])
+              s["mobile"] = self.application.is_mobile(s["manufacturer"])
+              if fix:
+                s['latitude'] = lat
+                s['longitude'] = lon
+              
+              if not self.is_too_old(fields[2], default_airodump_age):
+                if self.is_mac_valid(s['bssid']):
+                  stations.append(s)
+              
+              if len(fields) == 7:
+                for r in fields[6].split(','):
+                  p = {}
+                  p['bssid'] = fields[0]
+                  p['signal'] = s['signal']
+                  p['manufacturer'] = s["manufacturer"]
+                  p['mobile'] = s['mobile']
+                  p['essid'] = r.replace("\r\n", "")
+                  if p['essid'] != "":
+                    p['ap'] = len(self.application.getWifisFromEssid(p['essid']))
+                    if not self.is_too_old(s['last_seen'], default_airodump_age):
+                      if self.is_mac_valid(p['bssid']):
+                        probes.append(p)
+          except:
+            self.application.log("wifi", 'station parse fail')
+      f.close()
+      with self.lock:
+        self.networks = wifis
+        self.stations = stations
+        self.probes = probes
+      time.sleep(self.sleep/2)
+        
+  def getNetworks(self):
+    with self.lock:
+      return self.networks
+          
+  def stop(self):
+      self.running = False
