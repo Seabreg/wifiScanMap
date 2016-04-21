@@ -39,6 +39,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       }
       
       status["stat"] = self.server.app.getStats()
+      status["updates_count"] = self.server.app.updates_count
       status["current"] = self.server.app.getCurrent()
       
       if gps_status:

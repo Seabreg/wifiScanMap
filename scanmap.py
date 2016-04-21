@@ -64,12 +64,12 @@ class Application (threading.Thread):
         self.stopped = False
         self.session = gps(mode=WATCH_ENABLE)
         self.ignore_bssid = []
-        self.last_updated = 0
         self.network_count = 0
         self.interface = ''
         self.airodump = None
         self.wifiPosition = None
         self.bluePoller = BluetoothPoller(self)
+        self.updates_count = {'wifis':0, 'probes':0, 'stations':0, 'bt_stations':0}
         
         if(self.args.accuracy is None):
           self.args.accuracy = min_gpsd_accuracy
@@ -433,7 +433,7 @@ class Application (threading.Thread):
                 
             if updated != 0:
                 self.log("updated wifi", updated)
-            self.last_updated = updated
+                self.updates_count['wifis'] += updated
             self.network_count = len(wifis)
             self.wifiPosition = self.getWifiPosition(wifis)
             
@@ -445,6 +445,7 @@ class Application (threading.Thread):
                     updated += 1
                   if updated != 0:
                     self.log("updated probes", updated)
+                    self.updates_count['probes'] += updated
               except:
                 self.log("wifi", "probes insert fails")
               
@@ -456,6 +457,7 @@ class Application (threading.Thread):
                 
                 if updated != 0:
                     self.log("updated stations", updated)
+                    self.updates_count['stations'] += updated
               except:
                 self.log("wifi", "stations insert fails")
             
@@ -471,6 +473,7 @@ class Application (threading.Thread):
                 
             if updated != 0:
                 self.log("updated bluetooth", updated)
+                self.updates_count['bt_stations'] += updated
             
             with self.lock:
               self.db.commit()
