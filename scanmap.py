@@ -567,7 +567,6 @@ class Application (threading.Thread):
       if res is None:
         q = '''insert into stations (id, bssid, latitude, longitude, signal) values (NULL, "%s", "%s", "%s", "%s")'''%(station["bssid"], station["latitude"], station["longitude"], station["signal"])
         self.query(q)
-        self.log("station", "update")
         return True
       return False
     

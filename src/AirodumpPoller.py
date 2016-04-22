@@ -61,7 +61,7 @@ class AirodumpPoller(threading.Thread):
           exc_type, exc_obj, exc_tb = sys.exc_info()
           fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
           print(exc_type, fname, exc_tb.tb_lineno)
-          self.application.log('airodump' , line)
+          self.application.log('airodump' , fields)
           self.application.log('airodump' , n)
     return None
   
@@ -103,8 +103,6 @@ class AirodumpPoller(threading.Thread):
           fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
           print(exc_type, fname, exc_tb.tb_lineno)
           self.application.log('airodump' , line)
-          self.application.log('airodump' , s)
-          self.application.log('airodump' , p)
           
     f.close()
     if backup:
