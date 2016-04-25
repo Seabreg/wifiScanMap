@@ -6,6 +6,10 @@ Initially inspired by https://github.com/cyberpython/WifiScanAndMap , this proje
 
 Using tools such as iwlist, hcitool, or airmon-ng and a gpsd gps to logs data in an SQlite database, it provides a web HMI to monitor data processing and analyze already mapped data.
 
+It was tested on recent debian / ubuntu and a flying raspberry 1
+![Plane](doc/plane.png)
+
+
 ## installation
 - bower install
 - sudo apt install gpsd aircrack-ng bluez
