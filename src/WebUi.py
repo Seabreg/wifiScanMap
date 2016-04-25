@@ -47,8 +47,6 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           status['position']['gps']['longitude'] = self.server.app.session.fix.longitude
           status['position']['gps']['accuracy'] = self.server.app.gpspoller.getPrecision()
       
-      status['sync'] = self.server.app.getLastUpdate()
-      
       wifiPos = self.server.app.wifiPosition
       if wifiPos is not None:
         status['position']['wifi']['latitude'] = wifiPos[0]
@@ -199,7 +197,11 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           length = int(self.headers['Content-Length'])
           post = self.rfile.read(length)
           post = post.decode('string-escape').strip('"')
+          
           data = json.loads(post,strict=False)
+          hostname = data['hostname']
+          
+          
           for n in data['ap']:
             network = {}
             network['bssid'] = n[0]
@@ -212,24 +214,17 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             network['channel'] = n[7]
             network['mode'] = n[8]
             network['date'] = n[9]
+            network['gps'] = n[10]
             self.server.app.update(network)
+            self.server.app.synchronizer.update(hostname, 'ap', network['date'])
           
-          for bssid in data['stations']:
-            for n in data['stations'][bssid]["points"]:
-              station = {}
-              station['id'] = n[0]
-              station['bssid'] = n[1]
-              station['latitude'] = n[2]
-              station['longitude'] = n[3]
-              station['signal'] = n[4]
-              station['date'] = n[5]
-              self.server.app.update_station(station)
+          for station in data['stations']:
+            self.server.app.update_station(station)
+            self.server.app.synchronizer.update(hostname, 'stations', station['date'])
           
           for probe in data['probes']:
-            p = {}
-            p['bssid'] = probe[0]
-            p['essid'] = probe[1]
-            self.server.app.update_probe(p)
+            self.server.app.update_probe(probe)
+            self.server.app.synchronizer.update(hostname, 'probes', '1980-01-01 00:00:00')
           
           self.wfile.write(json.dumps('ok'))
     
@@ -257,6 +252,16 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.end_headers()
       sync = self.server.app.synchronizer.synchronize()
       self.wfile.write(json.dumps(sync))
+    
+    def _get_sync(self, hostname):
+      self.send_response(200)
+      self.send_header('Content-type','application/json')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      sync = self.server.app.get_sync(hostname)
+      self.wfile.write(json.dumps(sync))
+      
+      
     
     def do_GET(self):
         path,params,args = self._parse_url()
@@ -299,6 +304,10 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           return self._get_probes(params)
         elif len(args) == 1 and args[0] == 'stats.json':
             return self._get_stats()
+        elif len(args) == 1 and args[0] == 'sync.json':
+          if params is not None:
+              params = params.split('hostname=')[1]
+          return self._get_sync(params)
         else:
             return self._get_file(path)
       

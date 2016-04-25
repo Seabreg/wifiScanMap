@@ -104,8 +104,9 @@ class Application (threading.Thread):
           if self.getConfig('synchro') != '':
             args.synchro = self.getConfig('synchro')
         
+        self.synchronizer = Synchronizer(self, args.synchro)
+        
         if args.synchro is not None:
-          self.synchronizer = Synchronizer(self, args.synchro)
           self.synchronizer.start()
         
         try:
@@ -403,6 +404,7 @@ class Application (threading.Thread):
         self.query('''CREATE TABLE bt_stations
             (id integer primary key, bssid  text, class integer, name text, latitude real, longitude real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         self.query('''CREATE TABLE probes (bssid  text, essid text)''')
+        self.query('''CREATE TABLE sync (hostname  text, entity text, date TIMESTAMP)''')
     
     def log(self, name, value):
         print "%s   %s : %s"%(datetime.datetime.now(), name, value)
@@ -520,13 +522,18 @@ class Application (threading.Thread):
         if math.isnan(wifi["longitude"]):
             return False
                 
+        date_str = 'CURRENT_TIMESTAMP'
+        if(wifi.has_key('date')):
+          date_str = '"%s"'%wifi['date']
+                
         q = '''select * from wifis where bssid="%s" and essid="%s"'''%(wifi["bssid"], wifi["essid"])
         res = self.fetchone(q)
         if res is None:
             gps = 0
             if wifi["gps"]:
               gps = 1
-            q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode, date, gps) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", CURRENT_TIMESTAMP, %s)'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], gps)
+              
+            q = 'insert into wifis (bssid, essid, encryption, signal, longitude, latitude, frequency, channel, mode, date, gps) values ("%s", "%s", %s, %s, %s, %s, %s, %s, "%s", %s, %s)'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], date_str, gps)
             try:
               self.query(q)
               return True
@@ -542,7 +549,7 @@ class Application (threading.Thread):
               if not gps:
                 gps = 0
                 where_source = ' and gps = 0 ' 
-              q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", gps="%s", date=CURRENT_TIMESTAMP where bssid="%s" and essid="%s" %s'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], gps, wifi["bssid"], wifi["essid"], where_source)
+              q = 'update wifis set bssid="%s", essid="%s", encryption=%s, signal=%s, longitude=%s, latitude=%s, frequency=%s, channel=%s, mode="%s", gps="%s", date=%s where bssid="%s" and essid="%s" %s'%(wifi["bssid"], wifi["essid"], int(wifi["encryption"]), wifi["signal"], wifi["longitude"], wifi["latitude"], wifi["frequency"], wifi["channel"], wifi["mode"], gps, date_str, wifi["bssid"], wifi["essid"], where_source)
               if wifi["signal"] < signal:
                   self.query(q)
                   return True
@@ -693,7 +700,16 @@ class Application (threading.Thread):
                 if(line.find("IEEE 802.11")!=-1):
                         networkInterfaces.append(line.split()[0])
         return networkInterfaces
-      
+    
+    def get_sync(self, hostname):
+      sync = {}
+      q = '''select * from sync where hostname="%s"'''%hostname
+      res = self.fetchall(q)
+      if res is not None:
+        for r in res:
+          sync[r[1]] = r[2]
+      return sync
+    
     def getMacFromIface(self, _iface):
       path = "/sys/class/net/%s/address"%_iface
       data = open(path,'r').read()
