@@ -492,8 +492,7 @@ class Application (threading.Thread):
                 self.log("updated bluetooth", updated)
                 self.updates_count['bt_stations'] += updated
             
-            with self.lock:
-              self.db.commit()
+            self.commit()
           except Exception as e:
             self.log("wifi", 'fail')
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -505,7 +504,10 @@ class Application (threading.Thread):
               sleep = 1
           time.sleep(sleep)
       
-      
+    def commit(self):
+      with self.lock:
+        self.db.commit()
+     
     def update_bt_station(self, station):
       if not station.has_key('latitude'):
         return False
