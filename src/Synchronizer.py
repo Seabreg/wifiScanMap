@@ -98,42 +98,42 @@ class Synchronizer(threading.Thread):
     time.sleep(5)
     while self.running:
       
-      #try:
-      raw = urllib2.urlopen("%s/sync.json?hostname=%s"%(self.base, self.hostname), context=self.context)
-      data = json.loads(raw.read())
-      
-      date_ap = None
-      date_probes = None
-      date_stations = None
-      date_bt_stations = None
-      
       try:
-        date_ap = data['ap'].split('.')[0]
-      except:
-        pass
-      
-      try:
-        date_probes = data['probes'].split('.')[0]
-      except:
-        pass
-      
-      try:
-        date_stations = data['stations'].split('.')[0]
-      except:
-        pass
-      
-      try:
-        date_bt_stations = data['bt_stations'].split('.')[0]
-      except:
-        pass
-      
-      self.synchronize_ap(date_ap)
-      self.synchronize_probes(date_probes)
-      self.synchronize_stations(date_stations)
-      self.synchronize_bt_stations(date_bt_stations)
+        raw = urllib2.urlopen("%s/sync.json?hostname=%s"%(self.base, self.hostname), context=self.context)
+        data = json.loads(raw.read())
         
-      #except:
-        #print "Sync unavailable"
+        date_ap = None
+        date_probes = None
+        date_stations = None
+        date_bt_stations = None
+        
+        try:
+          date_ap = data['ap'].split('.')[0]
+        except:
+          pass
+        
+        try:
+          date_probes = data['probes'].split('.')[0]
+        except:
+          pass
+        
+        try:
+          date_stations = data['stations'].split('.')[0]
+        except:
+          pass
+        
+        try:
+          date_bt_stations = data['bt_stations'].split('.')[0]
+        except:
+          pass
+        
+        self.synchronize_ap(date_ap)
+        self.synchronize_probes(date_probes)
+        self.synchronize_stations(date_stations)
+        self.synchronize_bt_stations(date_bt_stations)
+          
+      except:
+        print "Sync unavailable"
       time.sleep(60)
 
   def stop(self):

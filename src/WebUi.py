@@ -218,13 +218,17 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             self.server.app.update(network)
             self.server.app.synchronizer.update(hostname, 'ap', network['date'])
           
+          for probe in data['probes']:
+            self.server.app.update_probe(probe)
+            self.server.app.synchronizer.update(hostname, 'probes', probe['date'])
+          
           for station in data['stations']:
             self.server.app.update_station(station)
             self.server.app.synchronizer.update(hostname, 'stations', station['date'])
           
-          for probe in data['probes']:
-            self.server.app.update_probe(probe)
-            self.server.app.synchronizer.update(hostname, 'probes', '1980-01-01 00:00:00')
+          for station in data['bt_stations']:
+            self.server.app.update_bt_station(station)
+            self.server.app.synchronizer.update(hostname, 'bt_stations', station['date'])
           
           self.wfile.write(json.dumps('ok'))
     

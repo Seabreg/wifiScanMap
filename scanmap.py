@@ -288,6 +288,7 @@ class Application (threading.Thread):
           probes.append({
             'bssid': p[0],
             'essid': p[1],
+            'date': p[2],
             'manufacturer': self.getManufacturer(p[0])
             })
         return probes
@@ -403,7 +404,7 @@ class Application (threading.Thread):
             (id integer primary key, bssid  text, latitude real, longitude real, signal real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         self.query('''CREATE TABLE bt_stations
             (id integer primary key, bssid  text, class integer, name text, latitude real, longitude real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-        self.query('''CREATE TABLE probes (bssid  text, essid text)''')
+        self.query('''CREATE TABLE probes (bssid  text, essid text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         self.query('''CREATE TABLE sync (hostname  text, entity text, date TIMESTAMP)''')
     
     def log(self, name, value):
@@ -561,7 +562,10 @@ class Application (threading.Thread):
       q = '''select * from probes where bssid="%s" and essid="%s"'''%(probe["bssid"], probe["essid"])
       res = self.fetchone(q)
       if res is None:
-        q = '''insert into probes (bssid, essid) values ("%s", "%s")'''%(probe["bssid"], probe["essid"])
+        date_str = 'CURRENT_TIMESTAMP'
+        if(probe.has_key('date')):
+          date_str = '"%s"'%probe['date']
+        q = '''insert into probes (bssid, essid, date) values ("%s", "%s", %s)'''%(probe["bssid"], probe["essid"], date_str)
         self.query(q)
         return True
       return False
