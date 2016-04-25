@@ -25,6 +25,7 @@ class Synchronizer(threading.Thread):
     else:
       q = '''insert into sync (hostname, entity, date) values ("%s", "%s", CURRENT_TIMESTAMP) '''%(hostname, entity)
     self.application.query(q)
+    self.application.commit()
 
   def synchronize_ap(self, date = None):
     if date is None:
