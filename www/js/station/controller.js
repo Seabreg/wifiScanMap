@@ -26,7 +26,6 @@
       this.stationsSource = new ol.source.Vector({});
       this.bt_stationsSource = new ol.source.Vector({});
 
-      
       this.map = new ol.Map({
         layers: [
         new ol.layer.Tile({
@@ -201,6 +200,7 @@
     update_station() {
       this.$location.search('bssid', this.$scope.bssid);
       if(this.$scope.bssid != "") {
+        $("#loading-container").show();
         this.$http.get(this.host+'/station.json?bssid='+this.$scope.bssid).then(response => {
           this.$scope.station = response.data;
           this.stationsSource.clear();
@@ -251,8 +251,19 @@
             })
             ap.setStyle(pointStyle);
             this.wifisSource.addFeature( ap );
+            
+            this.$scope.labels = [];
+            this.$scope.data = [[]];
+            
+            for(var i in response.data['days']) {
+              var day = response.data['days'][i];
+              this.$scope.labels.push(day[1]);
+              this.$scope.data[0].push(day[2]);
+            }
           }
+          $("#loading-container").hide();
         }, function errorCallback(response) {
+          $("#loading-container").hide();
         });
       }
     }

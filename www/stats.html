@@ -5,6 +5,8 @@
 <title>WifiScanMap | stats</title>  
 <script src="/js/components/jquery/dist/jquery.js"></script>
 <script src="/js/components/angular/angular.js"></script>
+<script src="/js/components/Chart.js/Chart.js"></script>
+<script src="/js/components/angular-chart.js/dist/angular-chart.js"></script>
 <script src="/js/components/ol3/ol.js"></script>
 <script src="/js/components/jquery-ui/jquery-ui.min.js"></script>
 <script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
@@ -25,6 +27,11 @@
           
           <h2>wifis</h2>
           <h3>Top essid</h3>
+          <div class="chart-container" >
+            <canvas id="essid-chart" class="chart chart-bar"
+              chart-data="essid_data" chart-labels="essid_labels" responsive="true">
+            </canvas>
+          </div>
           <ul>
             <li ng-repeat="wifi in stats.wifis.top" >{{wifi[1]}} {{wifi[0]}}</li>
           </ul>
@@ -35,6 +42,11 @@
           </ul>
           
           <h2>Top Probes</h2>
+          <div class="chart-container" >
+            <canvas id="probes-chart" class="chart chart-bar"
+              chart-data="probes_data" chart-labels="probes_labels">
+            </canvas>
+          </div>
           <ul>
             <li ng-repeat="probe in stats.probes.top" >{{probe[1]}} {{probe[0]}}</li>
           </ul>

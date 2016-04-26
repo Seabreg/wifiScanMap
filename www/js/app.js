@@ -1,1 +1,1 @@
-var app =  angular.module('ScanMap',[]);
+var app =  angular.module('ScanMap',['chart.js']);

@@ -4,6 +4,8 @@
 <title>WifiScanMap | wifis</title> 
 <script src="/js/components/jquery/dist/jquery.js"></script>
 <script src="/js/components/angular/angular.js"></script>
+<script src="/js/components/Chart.js/Chart.js"></script>
+<script src="/js/components/angular-chart.js/dist/angular-chart.js"></script>
 <script src="/js/components/ol3/ol.js"></script>
 <script src="/js/components/jquery-ui/jquery-ui.js"></script>
 <script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
@@ -19,7 +21,10 @@
  
  
  <div >
-<!--  First Name: <input type="text" ng-model="firstName"><br> -->
+ <div id="loading-container" style="display:none;" >
+  <div id="loading" ><img src="/img/loading.gif" alt="loading" /></div>
+ </div>
+ 
       <div id="left-pannel">
         <ul id="wifis-list"></ul>
       </div>
@@ -34,6 +39,8 @@
       
       <a href="/offline.html">Offline</a>
       <a href="/probes.html">Probes</a>
+      <a href="/stats.html">Stats</a>
+      <a href="/station.html">Station</a>
       
       <input type="text" ng-model="search_terms" /><button ng-click="search()" >Search</button><br/>
       <label>Wifis</label>

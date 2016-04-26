@@ -5,12 +5,15 @@
 <title>WifiScanMap | wifis</title> 
 <script src="/js/components/jquery/dist/jquery.js"></script>
 <script src="/js/components/angular/angular.js"></script>
+<script src="/js/components/Chart.js/Chart.js"></script>
+<script src="/js/components/angular-chart.js/dist/angular-chart.js"></script>
 <script src="/js/components/ol3/ol.js"></script>
 <script src="/js/components/jquery-ui/jquery-ui.js"></script>
 <script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/station/controller.js"></script>
 <link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
+<link rel="stylesheet" href="/js/components/angular-chart.js/dist/angular-chart.min.css" />
 <link rel="stylesheet" href="/css/main.css" />
 <link rel="stylesheet" href="/css/station.css" />
 </head> 
@@ -20,7 +23,10 @@
  
  
  <div >
-<!--  First Name: <input type="text" ng-model="firstName"><br> -->
+  <div id="loading-container" style="display:none;" >
+  <div id="loading" ><img src="/img/loading.gif" alt="loading" /></div>
+ </div>
+
       <div id="left-pannel">
       </div>
       <div id="pannel">
@@ -33,12 +39,12 @@
         <ul>
           <li ng-repeat="probe in station.probes" >{{probe}}</li>
         </ul>
-        
-        <ul>
-        <li ng-repeat="day in station.days" >{{day[1]}}: {{day[2]}}</li>
-        </ul>
+        <canvas id="station-view-days" class="chart chart-bar"
+          chart-data="data" chart-labels="labels"> chart-series="series"
+        </canvas>
       </div>
       <div id="map"></div>
+
 
 </div>
 </body> 

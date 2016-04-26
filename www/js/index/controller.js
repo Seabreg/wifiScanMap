@@ -303,6 +303,7 @@
     
     
     update_stations() {
+      $("#loading-container").show();
       this.stationsSource.clear();
       this.$http.get(this.host + '/stations.json').then(response => {
         this.colors = {};
@@ -337,10 +338,12 @@
         {
           self.$scope.search();
         }
+        $("#loading-container").hide();
       });
     }
     
     update_bt_stations() {
+      $("#loading-container").show();
       this.bt_stationsSource.clear();
       this.$http.get(this.host + '/bt_stations.json').then(response => {
         this.colors = {};
@@ -374,10 +377,12 @@
         {
           self.$scope.search();
         }
+        $("#loading-container").hide();
       });
     }
     
     update_wifis() {
+      $("#loading-container").show();
       var wifis = [];
       var lastLat = -1;
       var lastLon = -1;
@@ -396,10 +401,12 @@
             info.push(response.data[w]);
           }
         }
+        if(info.length > 0) {
+          wifis.push(info);
+        }
         for(var i in wifis ) {
           var lat = wifis[i][0]["latitude"];
-          var lon = wifis[i][0]["longitude"];
-          
+          var lon = wifis[i][0]["longitude"];          
           var len = wifis[i].length;
           
           var count = 0;
@@ -452,6 +459,7 @@
         {
           self.$scope.search();
         }
+        $("#loading-container").hide();
       });
     }
     

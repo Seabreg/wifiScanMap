@@ -46,6 +46,7 @@ def parse_args():
     parser.add_argument("-s", "--sleep", help="wifi interface")  
     parser.add_argument("-d", "--database", help="wifi database")
     parser.add_argument('-w', '--www', help='www port')
+    parser.add_argument('-p', '--position', help='lat,lon position')
     parser.add_argument('-a', '--accuracy', help='minimum accuracy')
     parser.add_argument('-u', '--synchro', help='synchro uri ie http://test.com:8686')
     parser.add_argument('-e', '--enable', action='store_true', help='enable db synchro through json')
@@ -69,6 +70,10 @@ class Application (threading.Thread):
         self.wifiPosition = None
         self.bluePoller = BluetoothPoller(self)
         self.updates_count = {'wifis':0, 'probes':0, 'stations':0, 'bt_stations':0}
+        
+        if self.args.position is not None:
+          lat, lon = self.args.position.split(',')
+          self.args.position = (float(lat), float(lon))
         
         if(self.args.accuracy is None):
           self.args.accuracy = min_gpsd_accuracy
@@ -230,7 +235,7 @@ class Application (threading.Thread):
       where_bssid = ""
       if bssid is not None:
         where_bssid = ' where bssid = "%s"'%bssid
-      q='''select bssid, date(date), count(distinct date(date)) from stations %s group by bssid order by count(distinct date(date)) DESC, date %s'''%(where_bssid, limit_str)
+      q='''select bssid, date(date), count(*) from stations %s group by date(date) order by count(distinct date(date)) DESC, date %s'''%(where_bssid, limit_str)
       return self.fetchall(q)
     
     def getAllStations(self, search = None):
@@ -692,6 +697,8 @@ class Application (threading.Thread):
         return (longitude, latitude, 'gps')
       elif self.wifiPosition is not None:
         return (self.wifiPosition[1], self.wifiPosition[0], 'wifi')
+      elif self.args.position is not None:
+        return (self.args.position[1], self.args.position[0], 'cmdline')
       return None
             
     def getWirelessInterfacesList(self):

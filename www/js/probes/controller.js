@@ -27,9 +27,12 @@
       if(this.$scope.terms != "") {
         params = "?essid=" + this.$scope.terms;
       }
+      $("#loading-container").show();
       this.$http.get(this.host+'/probes.json' + params).then(response => {
         self.$scope.probes = response.data;
+        $("#loading-container").hide();
       }, function errorCallback(response) {
+        $("#loading-container").hide();
         self.$scope.link_status = false;
       });
     }

@@ -48,3 +48,19 @@ a, a:visited, a:hover {
 .secure {
   color:red; 
 }
+
+#loading-container {
+  position:absolute;
+  top:0%;
+  left:0%;
+  z-index:9999;
+  height:100%;
+  width:100%;
+  background-color:rgba(255,255,255,0.7);
+}
+
+#loading {
+  position: absolute;
+  top:40%;
+  left:40%;
+}

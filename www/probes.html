@@ -5,6 +5,8 @@
 <title>WifiScanMap | probes</title> 
 <script src="/js/components/jquery/dist/jquery.js"></script>
 <script src="/js/components/angular/angular.js"></script>
+<script src="/js/components/Chart.js/Chart.js"></script>
+<script src="/js/components/angular-chart.js/dist/angular-chart.js"></script>
 <script src="/js/components/ol3/ol.js"></script>
 <script src="/js/components/jquery-ui/jquery-ui.js"></script>
 <script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
@@ -17,6 +19,11 @@
 <body ng-app="ScanMap">
   <div ng-controller="probesController">
     <h1>Probes</h1>
+    
+      <div id="loading-container" style="display:none;" >
+        <div id="loading" ><img src="/img/loading.gif" alt="loading" /></div>
+      </div>
+    
     <table ng-if="terms == ''">
       <tr>
       <th  class="count">Request</th>
