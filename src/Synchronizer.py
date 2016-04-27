@@ -27,6 +27,39 @@ class Synchronizer(threading.Thread):
     self.application.query(q)
     self.application.commit()
 
+  def update_position(self, hostname, position):
+    q = '''select * from devices where hostname="%s"'''%hostname
+    res = self.application.fetchone(q)
+    if res is not None:
+      q = '''update devices set date = %s, latitude=%s, longitude=%s, source="%s" where hostname="%s" '''%('CURRENT_TIMESTAMP', position['latitude'], position['longitude'], position['source'], hostname)
+    else:
+      q = '''insert into devices (hostname, latitude, longitude, source, date) values ("%s", "%s", "%s", "%s", CURRENT_TIMESTAMP) '''%(hostname, position['latitude'], position['longitude'], position['source'])
+    self.application.query(q)
+    self.application.commit()
+
+  def syncronize_position(self):
+    pos = self.application.getPosition()
+    if pos is not None:
+      data = {
+        'hostname': self.hostname,
+        'ap':[],
+        'probes': [],
+        'stations': [],
+        'bt_stations': [],
+        'position': {
+          'latitude': pos[1],
+          'longitude': pos[0],
+          'source': pos[2],
+          }
+      }
+      
+      req = urllib2.Request('%s/upload.json'%self.base)
+      req.add_header('Content-Type', 'application/json')
+      response = urllib2.urlopen(req, json.dumps(data), context=self.context)
+      print "Position synced"
+      return True
+    return True
+
   def synchronize_ap(self, date = None):
     if date is None:
       date = '1980-01-01 00:00:00'
@@ -36,7 +69,8 @@ class Synchronizer(threading.Thread):
       'ap':res,
       'probes': [],
       'stations': [],
-      'bt_stations': []
+      'bt_stations': [],
+      'position': None
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
@@ -53,7 +87,8 @@ class Synchronizer(threading.Thread):
       'ap':[],
       'probes': res,
       'stations': [],
-      'bt_stations': []
+      'bt_stations': [],
+      'position': None
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
@@ -70,7 +105,8 @@ class Synchronizer(threading.Thread):
       'ap':[],
       'probes': [],
       'stations': res,
-      'bt_stations': []
+      'bt_stations': [],
+      'position': None
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
@@ -87,7 +123,8 @@ class Synchronizer(threading.Thread):
       'ap':[],
       'probes': [],
       'stations': [],
-      'bt_stations': res
+      'bt_stations': res,
+      'position': None
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
@@ -128,6 +165,7 @@ class Synchronizer(threading.Thread):
         except:
           pass
         
+        self.syncronize_position()
         self.synchronize_ap(date_ap)
         self.synchronize_probes(date_probes)
         self.synchronize_stations(date_stations)

@@ -1,0 +1,38 @@
+<!DOCTYPE html> 
+<html>
+<head> 
+<title>WifiScanMap | wifis</title> 
+<script src="/js/components/jquery/dist/jquery.js"></script>
+<script src="/js/components/angular/angular.js"></script>
+<script src="/js/components/Chart.js/Chart.js"></script>
+<script src="/js/components/angular-chart.js/dist/angular-chart.js"></script>
+<script src="/js/components/ol3/ol.js"></script>
+<script src="/js/components/jquery-ui/jquery-ui.js"></script>
+<script src="/js/components/bootstrap/dist/js/bootstrap.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/devices/controller.js"></script>
+<link rel="stylesheet" href="/js/components/bootstrap/dist/css/bootstrap.min.css" />
+<link rel="stylesheet" href="/css/main.css" />
+<link rel="stylesheet" href="/css/devices.css" />
+</head> 
+<body ng-app="ScanMap"> 
+	<div ng-controller="devicesController">
+ 
+ 
+ 
+ <div >
+ <div id="loading-container" style="display:none;" >
+  <div id="loading" ><img src="/img/loading.gif" alt="loading" /></div>
+ </div>
+ <div id="left-pannel"></div>
+      <div id="pannel">
+      <div id="control">
+      <div ng-class="{'label label-success':link_status, 'label label-danger':!link_status}" >Service</div>
+      <a href="/">Home</a>  
+      </div>
+      </div>
+      <div id="map"></div>
+
+</div>
+</body> 
+</html>

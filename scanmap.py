@@ -280,6 +280,22 @@ class Application (threading.Thread):
           stations.append(station)
         
       return stations
+
+    def getDevices(self):
+      devices = []      
+      q = 'select * from devices'
+      res = self.fetchall(q)
+      if res is not None:
+        for d in res:
+          device = {}
+          device['hostname'] = d[0]
+          device['latitude'] = d[1]
+          device['longitude'] = d[2]
+          device['source'] = d[3]
+          device['date'] = d[4]
+          devices.append(device)
+        
+      return devices
     
     def getAllProbes(self, distinct = False, essid = None):
       essid_where = ""
@@ -411,6 +427,7 @@ class Application (threading.Thread):
             (id integer primary key, bssid  text, class integer, name text, latitude real, longitude real, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         self.query('''CREATE TABLE probes (bssid  text, essid text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         self.query('''CREATE TABLE sync (hostname  text, entity text, date TIMESTAMP)''')
+        self.query('''CREATE TABLE devices (hostname  text, latitude real, longitude real, source text, date TIMESTAMP)''')
     
     def log(self, name, value):
         print "%s   %s : %s"%(datetime.datetime.now(), name, value)

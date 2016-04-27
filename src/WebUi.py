@@ -120,6 +120,14 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       data = self.server.app.getAllStations(search)
       self.wfile.write(json.dumps(data))
     
+    def _get_devices(self):
+      self.send_response(200)
+      self.send_header('Content-type','application/json')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      data = self.server.app.getDevices()
+      self.wfile.write(json.dumps(data))
+    
     def _get_bt_stations(self, search = None):
       self.send_response(200)
       self.send_header('Content-type','application/json')
@@ -201,6 +209,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           data = json.loads(post,strict=False)
           hostname = data['hostname']
           
+          if data['position'] is not None:
+            self.server.app.synchronizer.update_position(hostname, data['position'])
           
           for n in data['ap']:
             network = {}
@@ -308,6 +318,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           return self._get_probes(params)
         elif len(args) == 1 and args[0] == 'stats.json':
             return self._get_stats()
+        elif len(args) == 1 and args[0] == 'devices.json':
+            return self._get_devices()
         elif len(args) == 1 and args[0] == 'sync.json':
           if params is not None:
               params = params.split('hostname=')[1]
