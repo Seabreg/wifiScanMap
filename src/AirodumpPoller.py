@@ -105,7 +105,7 @@ class AirodumpPoller(threading.Thread):
           self.application.log('airodump' , line)
           
     f.close()
-    if backup:
+    if backup and self.application.args.log:
       shutil.copyfile(csv_path, "/tmp/wifimap-%s.csv"%self.error_id)
       self.error_id += 1
       

@@ -21,7 +21,8 @@
           
           <div ng-class="{'label label-success':status.position.gps.fix, 'label label-danger':!status.position.gps.fix}" >Gps {{status.position.gps.accuracy}}m</div>
           <div ng-class="{'label label-success':status.position.wifi.fix, 'label label-danger':!status.position.wifi.fix}" >Wifi {{status.position.wifi.accuracy}}m</div><br/>
-          <button ng-click="play_pause()" >Play/pause</button><br/>
+          version {{status.version}}<br/>
+          <button ng-click="play_pause()" >{{button_text}}</button><br/>
           
           wifis: {{status.stat.wifis.all}}, {{status.stat.wifis.open}} open, {{status.stat.probes.all}} probes
         <div>
@@ -37,27 +38,33 @@
                 <a href="/#?wifis=true&terms={{wifi.essid}}" >{{wifi.essid}}</a>
               </div>
             </div>
+            <hr/>
               </li>
             </ul>
           </div>
           <div id="currentProbesContainer" >
           <img src="/img/probe.png" alt="probes-logo" /> {{status.updates_count.probes}}
           <ul id="current-probes">
-            <li ng-repeat="probe in status.current.probes">
-              <div class="manufacturer"><a ng-if="probe.ap != 0" href="/#?wifis=true&terms={{probe.essid}}" >#{{probe.ap}}</a> &nbsp;{{probe.manufacturer}}</div>
+            <li ng-repeat="probe in status.current.probes" ng-class="get_station_class(probe.bssid)" ng-mouseenter="select(get_station_class(probe.bssid))" ng-mouseleave="unselect(get_station_class(probe.bssid))">
+              <div class="manufacturer">
+                <div ng-if="probe.ap != 0" >
+                  <a href="/#?wifis=true&terms={{probe.essid}}" >#{{probe.ap}} <img src="/img/pin.png" /> </a>
+                </div>
+              &nbsp;{{probe.manufacturer}}</div>
               <div class="progress">
                 <div class="progress-bar" role="progressbar" aria-valuenow="70"
                 aria-valuemin="0" aria-valuemax="100" style="width:{{100+probe.signal}}%">
-                  <a href="/probes.html#?essid={{probe.essid}}">{{probe.essid}}<a>
+                  <a href="/probes.html#?essid={{probe.essid}}">{{probe.essid}}</a>
                 </div>
               </div>
+              <hr/>
             </li>
           </ul>
           </div>
           <div id="currentStationsContainer" >
           <img src="/img/station.png" alt="stations-logo" /> {{status.updates_count.stations}}
           <ul id="current-stations">
-            <li ng-repeat="station in status.current.stations">
+            <li ng-repeat="station in status.current.stations" ng-class="get_station_class(station.bssid)" ng-mouseenter="select(get_station_class(station.bssid))" ng-mouseleave="unselect(get_station_class(station.bssid))">
               <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
               <div class="device-type" ng-class="{'android':station.manufacturer == 'Google', 'apple':station.manufacturer == 'Apple', 'microsoft':station.manufacturer == 'Microsof', 'mobile':station.mobile, 'no-mobile':!station.mobile}" ></div>
               <div class="progress">
@@ -66,6 +73,12 @@
                   <a href="/station.html#?bssid={{station.bssid}}" >{{station.bssid}}</a>
                 </div>
               </div>
+              <div>
+                <canvas id="station-view-days" class="chart chart-bar"
+                  chart-data="data_stations[$index]" chart-labels="labels_stations[$index]"  animation="false" >
+                </canvas>
+              </div>
+              <hr/>
             </li>
           </ul>
         </div>
@@ -73,8 +86,18 @@
           <img src="/img/bluetooth.png" alt="bluetooth-stations-logo" /> {{status.updates_count.bt_stations}}
           <ul id="current-bluetooth-stations">
             <li ng-repeat="station in status.current.bluetooth">
-              <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
-                  {{station.name}}&nbsp;&nbsp;<a href="/station.html#?bssid={{station.bssid}}" >{{station.bssid}}</a>
+            <ul>
+              <li>{{station.manufacturer}}</li>
+              <li>
+                <div class="device-type" ng-class="station.class_description" ></div>
+                {{station.class_description}}
+              </li>
+              <li>{{station.name}}&nbsp;&nbsp;<a href="/station.html#?bssid={{station.bssid}}" >{{station.bssid}}</a></li>
+            </ul>
+                <canvas id="bt-station-view-days" class="chart chart-bar"
+                  chart-data="data_bt_stations[$index]" chart-labels="labels_bt_stations[$index]"  animation="false" >
+                </canvas>
+                <hr/>
             </li>
           </ul>
         </div>

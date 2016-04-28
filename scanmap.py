@@ -47,6 +47,7 @@ def parse_args():
     parser.add_argument("-d", "--database", help="wifi database")
     parser.add_argument('-w', '--www', help='www port')
     parser.add_argument('-p', '--position', help='lat,lon position')
+    parser.add_argument('-l', '--log', action='store_true', help='lat,lon position')
     parser.add_argument('-a', '--accuracy', help='minimum accuracy')
     parser.add_argument('-u', '--synchro', help='synchro uri ie http://test.com:8686')
     parser.add_argument('-e', '--enable', action='store_true', help='enable db synchro through json')
@@ -60,6 +61,10 @@ class Application (threading.Thread):
         threading.Thread.__init__(self)
         self.args = args
         self.manufacturers_db = '/usr/share/wireshark/manuf'
+        self.cache = {
+            'history':{}
+          }
+        self.version = self.get_version()
         self.manufacturers = {}
         self.lock = Lock()
         self.stopped = False
@@ -148,6 +153,16 @@ class Application (threading.Thread):
         except:
           self.log("http", "web hmi not available")
     
+    def get_version(self):
+      try:
+        cmd = ['git', 'describe', '--always']
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process.wait()
+        (stdoutdata, stderrdata) = process.communicate();
+        return stdoutdata
+      except:
+        return 'unknown'
+    
     def query(self, query):
       with self.lock:
         self.query_db.execute(query)
@@ -235,8 +250,13 @@ class Application (threading.Thread):
       where_bssid = ""
       if bssid is not None:
         where_bssid = ' where bssid = "%s"'%bssid
+
       q='''select bssid, date(date), count(*) from stations %s group by date(date) order by count(distinct date(date)) DESC, date %s'''%(where_bssid, limit_str)
-      return self.fetchall(q)
+      res = self.fetchall(q)
+      if len(res) == 0:
+        q='''select bssid, date(date), count(*) from bt_stations %s group by date(date) order by count(distinct date(date)) DESC, date %s'''%(where_bssid, limit_str)
+        res = self.fetchall(q)
+      return res
     
     def getAllStations(self, search = None):
       stations = []
@@ -272,6 +292,7 @@ class Application (threading.Thread):
           station = {}
           station['bssid'] = s[1]
           station['class'] = s[2]
+          station['class_description'] = self.bluePoller.get_major_device_description(self.bluePoller.parse_class(station['class']))
           station['name'] = s[3]
           station['latitude'] = s[4]
           station['longitude'] = s[5]
@@ -341,15 +362,28 @@ class Application (threading.Thread):
       wifis = self.scanForWifiNetworks()
       probes = []
       stations = []
+      bt_stations = []
       
       if self.args.monitor and not USE_SCAPY:
         probes = self.airodump.probes
-        stations = self.airodump.stations
+        st = self.airodump.stations
+        for s in st:
+          if not self.cache['history'].has_key(s['bssid']):
+            self.cache['history'][s['bssid']] = self.getStationsPerDay(s['bssid'])
+          s['history'] = self.cache['history'][s['bssid']]
+          stations.append(s)
+          
+      for s in self.bluePoller.stations:
+        if not self.cache['history'].has_key(s['bssid']):
+          self.cache['history'][s['bssid']] = self.getStationsPerDay(s['bssid'])
+        s['history'] = self.cache['history'][s['bssid']]
+        bt_stations.append(s)
+          
       data = {}
       data['wifis'] = wifis
       data['probes'] = probes
       data['stations'] = stations
-      data['bluetooth'] = self.bluePoller.stations
+      data['bluetooth'] = bt_stations
       return data
     
     def getStation(self, bssid):
@@ -533,7 +567,7 @@ class Application (threading.Thread):
     def update_bt_station(self, station):
       if not station.has_key('latitude'):
         return False
-      q = '''select * from bt_stations where bssid="%s" and latitude="%s" and longitude="%s"'''%(station["bssid"], station["latitude"], station["longitude"])
+      q = '''select * from bt_stations where bssid="%s" and latitude="%s" and longitude="%s" and (julianday('now') - julianday(date))*24 < 2'''%(station["bssid"], station["latitude"], station["longitude"])
       res = self.fetchone(q)
       if res is None:
         q = '''insert into bt_stations (id, bssid, class, name, latitude, longitude) values (NULL, "%s", "%s", "%s", "%s", "%s")'''%(station["bssid"], station['class'], station['name'], station["latitude"], station["longitude"])
@@ -597,7 +631,7 @@ class Application (threading.Thread):
     def update_station(self, station):
       if not station.has_key('latitude'):
         return False
-      q = '''select * from stations where bssid="%s" and latitude="%s" and longitude="%s"'''%(station["bssid"], station["latitude"], station["longitude"])
+      q = '''select * from stations where bssid="%s" and latitude="%s" and longitude="%s" and signal=%s and (julianday('now') - julianday(date))*24 < 2 '''%(station["bssid"], station["latitude"], station["longitude"], station["signal"])
       res = self.fetchone(q)
       if res is None:
         q = '''insert into stations (id, bssid, latitude, longitude, signal) values (NULL, "%s", "%s", "%s", "%s")'''%(station["bssid"], station["latitude"], station["longitude"], station["signal"])
@@ -764,7 +798,7 @@ class Application (threading.Thread):
         return c * r
     
     def is_mobile(self, manufacturer):
-      return manufacturer in ['Apple', 'Nokia', 'Google', "4pMobile", "AavaMobi", "Advanced", "Asmobile", "AutonetM", "AzteqMob", "BejingDa", "Cambridg", "CasioHit", "Cellebri", "CgMobile", "ChinaMob", "CnfMobil", "CustosMo", "DatangMo", "DeltaMob", "DigitMob", "DmobileS", "EzzeMobi", "Farmobil", "Far-Sigh", "FuturaMo", "GmcGuard", "Guangdon", "HisenseM", "HostMobi", "IgiMobil", "IndigoMo", "InqMobil", "Ipmobile", "JdmMobil", "Jetmobil", "JustInMo", "KbtMobil", "L-3Commu", "LenovoMo", "LetvMobi", "LgElectr", "LiteonMo", "MemoboxS", "Microsof", "Mobacon", "Mobiis", "Mobilarm", "Mobileac", "MobileAc", "MobileAp", "Mobilear", "Mobileco", "MobileCo", "MobileCr", "MobileDe", "Mobileec", "MobileIn", "MobileMa", "MobileSa", "Mobileso", "MobileTe", "MobileXp", "Mobileye", "Mobilico", "Mobiline", "Mobilink", "Mobilism", "Mobillia", "Mobilmax", "Mobiltex", "Mobinnov", "Mobisolu", "Mobitec", "Mobitek", "MobiusTe", "Mobiwave", "Moblic", "Mobotix", "Mobytel", "Motorola", "NanjingS", "NecCasio", "P2Mobile", "Panasoni", "PandoraM", "Pointmob", "PoshMobi", "Radiomob", "RadioMob", "RapidMob", "RttMobil", "Shanghai", "Shenzhen", "SianoMob", "Smobile", "SonyEric", "SonyMobi", "Sysmocom", "T&AMobil", "TcmMobil", "TctMobil", "Tecmobil", "TinnoMob", "Ubi&Mobi", "Viewsoni", "Vitelcom", "VivoMobi", "XcuteMob", "XiamenMe", "YuduanMo"]
+      return manufacturer in ['Apple', 'Nokia', 'Google', "4pMobile", "AavaMobi", "Advanced", "Asmobile", "AutonetM", "AzteqMob", "BejingDa", "Cambridg", "CasioHit", "Cellebri", "CgMobile", "ChinaMob", "CnfMobil", "CustosMo", "DatangMo", "DeltaMob", "DigitMob", "DmobileS", "EzzeMobi", "Farmobil", "Far-Sigh", "FuturaMo", "GmcGuard", "Guangdon", "HisenseM", "HostMobi", "IgiMobil", "IndigoMo", "InqMobil", "Ipmobile", "JdmMobil", "Jetmobil", "JustInMo", "KbtMobil", "L-3Commu", "LenovoMo", "LetvMobi", "LgElectr", "LiteonMo", "MemoboxS", "Microsof", "Mobacon", "Mobiis", "Mobilarm", "Mobileac", "MobileAc", "MobileAp", "Mobilear", "Mobileco", "MobileCo", "MobileCr", "MobileDe", "Mobileec", "MobileIn", "MobileMa", "MobileSa", "Mobileso", "MobileTe", "MobileXp", "Mobileye", "Mobilico", "Mobiline", "Mobilink", "Mobilism", "Mobillia", "Mobilmax", "Mobiltex", "Mobinnov", "Mobisolu", "Mobitec", "Mobitek", "MobiusTe", "Mobiwave", "Moblic", "Mobotix", "Mobytel", "Motorola", "NanjingS", "NecCasio", "P2Mobile", "Panasoni", "PandoraM", "Pointmob", "PoshMobi", "Radiomob", "RadioMob", "RapidMob", "RttMobil", "Shanghai", "Shenzhen", "SianoMob", "Smobile", "SonyEric", "SonyMobi", "Sysmocom", "T&AMobil", "TcmMobil", "TctMobil", "Tecmobil", "TinnoMob", "Ubi&Mobi", "Viewsoni", "Vitelcom", "VivoMobi", "XcuteMob", "XiamenMe", "YuduanMo", "Blackber"]
 
 def main(args):
     f = open("/var/run/wifimap", 'w')

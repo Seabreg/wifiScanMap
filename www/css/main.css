@@ -25,6 +25,18 @@ html, body {
    background-image:url(/img/smartphone.png);
  }
  
+ .computer {
+   background-image:url(/img/computer.png);
+ }
+
+ .audio {
+   background-image:url(/img/headset.png);
+ }
+
+ .audio {
+   background-image:url(/img/health.png);
+ }
+ 
  .no-mobile {
  }
  

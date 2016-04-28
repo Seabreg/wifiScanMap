@@ -96,6 +96,7 @@
         <img src="/img/bluetooth.png" alt="bluetooth-stations-logo" />  {{status.updates_count.bt_stations}}
         <ul id="current-bluetooth-stations">
           <li ng-repeat="station in status.current.bluetooth">
+            <div class="device-type" ng-class="station.class_description" ></div>
             <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
                 <a href="/station.html#?bssid={{station.bssid}}" >{{station.bssid}}</a>
           </li>

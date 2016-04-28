@@ -4,8 +4,6 @@
   text-align:center; 
 }
 
-.manufacturer {
- float:left;
- width:20%;
- min-width:20%;
+.selected {
+ background-color:rgba(0,0,0,0.1); 
 }
