@@ -223,6 +223,10 @@ class Application (threading.Thread):
         
         q = '''select count(distinct bssid) from bt_stations'''
         stat['bt_stations']['all'] = self.fetchone(q)[0]
+        
+        
+        q = '''select channel, count(*) as chan from wifis group by channel order by chan desc'''
+        stat['wifis']['channels'] = self.fetchall(q)
       
       q = '''select count(distinct essid) from probes'''
       stat['probes']['all'] = self.fetchone(q)[0]

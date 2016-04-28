@@ -37,6 +37,16 @@
           this.$scope.probes_data[0].push(wifi[1]);
         }
         
+        
+        this.$scope.channels_labels = [];
+        this.$scope.channels_data = [[]];
+        
+        for(var i in response.data['wifis']['channels']) {
+          var wifi = response.data['wifis']['channels'][i];
+          this.$scope.channels_labels.push(wifi[0]);
+          this.$scope.channels_data[0].push(wifi[1]);
+        }
+        
       }, function errorCallback(response) {
         self.$scope.link_status = false;
       });

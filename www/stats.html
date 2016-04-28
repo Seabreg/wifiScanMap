@@ -29,13 +29,18 @@
           <h3>Top essid</h3>
           <div class="chart-container" >
             <canvas id="essid-chart" class="chart chart-bar"
-              chart-data="essid_data" chart-labels="essid_labels" responsive="true">
+              chart-data="essid_data" chart-labels="essid_labels">
             </canvas>
           </div>
           <ul>
             <li ng-repeat="wifi in stats.wifis.top" >{{wifi[1]}} {{wifi[0]}}</li>
           </ul>
-          
+          <h3>Channels</h3>
+          <div class="chart-container" >
+            <canvas id="channels-chart" class="chart chart-bar"
+                chart-data="channels_data" chart-labels="channels_labels" responsive="true">
+            </canvas>
+          </div>
           <h3>Top manufacturer</h3>
           <ul>
             <li ng-repeat="wifi in stats.wifis.manufacturer" >{{wifi.count}} {{wifi.manufacturer}}</li>
