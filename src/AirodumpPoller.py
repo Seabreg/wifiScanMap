@@ -13,12 +13,14 @@ class AirodumpPoller(threading.Thread):
   def __init__(self, app):
     threading.Thread.__init__(self)
     self.application = app
+    self.run_for = 60*60 # 1 hour
     self.lock = Lock()
     self.networks = []
     self.stations = []
     self.probes = []
     self.running = True #setting the thread running to true
     self.error_id = 0
+    self.start_date = None
     self.sleep = 1
     try:
       if self.application.args.sleep is not None:
@@ -111,7 +113,17 @@ class AirodumpPoller(threading.Thread):
       
     return res
   
-  def run(self):            
+  def run(self):
+    while self.running:
+      self.application.log('airodump' , 'starting..')
+      self.run_once()
+      time.sleep(self.sleep)
+  
+  def run_more(self):
+    return ( datetime.datetime.now() - self.start_date).total_seconds() < self.run_for  
+  
+  def run_once(self):
+    self.start_date = datetime.datetime.now()
     FNULL = open(os.devnull, 'w')
     prefix= '/tmp/wifi-dump'
     os.system("rm %s*"%prefix)
@@ -124,7 +136,7 @@ class AirodumpPoller(threading.Thread):
     time.sleep(10)
     #['BSSID', ' First time seen', ' Last time seen', ' channel', ' Speed', ' Privacy', ' Cipher', ' Authentication', ' Power', ' # beacons', ' # IV', ' LAN IP', ' ID-length', ' ESSID', ' Key']
     error_id = 0
-    while self.running:
+    while self.running and self.run_more():
       pos = self.application.getPosition()
       fix = pos is not None
       if fix:
@@ -172,6 +184,7 @@ class AirodumpPoller(threading.Thread):
         self.stations = stations
         self.probes = probes
       time.sleep(self.sleep/2)
+    process.kill()
         
   def getNetworks(self):
     with self.lock:

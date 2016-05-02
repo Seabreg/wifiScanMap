@@ -47,6 +47,15 @@
           this.$scope.channels_data[0].push(wifi[1]);
         }
         
+        this.$scope.bt_class_labels = [];
+        this.$scope.bt_class_data = [[]];
+        
+        for(var i in response.data['bt_stations']['class']) {
+          var bt = response.data['bt_stations']['class'][i];
+          this.$scope.bt_class_labels.push(bt['class_description']);
+          this.$scope.bt_class_data[0].push(bt['count']);
+        }
+        
       }, function errorCallback(response) {
         self.$scope.link_status = false;
       });

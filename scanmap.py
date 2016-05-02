@@ -224,6 +224,16 @@ class Application (threading.Thread):
         q = '''select count(distinct bssid) from bt_stations'''
         stat['bt_stations']['all'] = self.fetchone(q)[0]
         
+        q= '''select (class >> 8 & 0x1F) as class_, count(DISTINCT bssid) as cl from bt_stations group by class_ order by cl desc;'''
+        res = self.fetchall(q)
+        classes = []
+        for i in res:
+          classes.append({
+            'class_description': self.bluePoller.get_major_device_description(i[0]),
+            'count': i[1]
+            
+            })
+        stat['bt_stations']['class'] = classes
         
         q = '''select channel, count(*) as chan from wifis group by channel order by chan desc'''
         stat['wifis']['channels'] = self.fetchall(q)
@@ -282,6 +292,10 @@ class Application (threading.Thread):
           stations.append(station)
         
       return stations
+    
+    def getAllBtStationsByClass(self, _class):
+       q = '''select * from bt_stations where (class >> 8 & 0x1F)=%s'''%_class
+       return self.fetchall(q)
     
     def getAllBtStations(self, search):
       stations = []
