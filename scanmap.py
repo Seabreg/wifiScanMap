@@ -760,14 +760,14 @@ class Application (threading.Thread):
         return (res[0], res[1], self.haversine(0,0,res[2],res[3]))
            
     def getPosition(self):
-      if self.gpspoller.has_fix():
+      if self.args.position is not None:
+        return (self.args.position[1], self.args.position[0], 'cmdline')
+      elif self.gpspoller.has_fix():
         longitude = self.session.fix.longitude
         latitude = self.session.fix.latitude
         return (longitude, latitude, 'gps')
       elif self.wifiPosition is not None:
         return (self.wifiPosition[1], self.wifiPosition[0], 'wifi')
-      elif self.args.position is not None:
-        return (self.args.position[1], self.args.position[0], 'cmdline')
       return None
             
     def getWirelessInterfacesList(self):
