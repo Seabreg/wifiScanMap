@@ -88,6 +88,13 @@ class Application (threading.Thread):
         else:
             db = "./wifimap.db"
         self.db = sqlite3.connect(db, check_same_thread=False)
+        def to_text(text):
+          try:
+            return text.decode('utf8')
+          except:
+            self.log('sqlite', 'encoding error '+text)
+            return 'encoding_error'
+        self.db.text_factory = to_text
         self.query_db = self.db.cursor()
         
         try:
@@ -594,6 +601,8 @@ class Application (threading.Thread):
       return False
     
     def update(self, wifi):
+        if  wifi['essid'] == 'encoding_error':
+          return False
         if not wifi.has_key('latitude'):
           return False
         if math.isnan(wifi["longitude"]):
@@ -635,6 +644,8 @@ class Application (threading.Thread):
         return False
     
     def update_probe(self, probe):
+      if  probe['essid'] == 'encoding_error':
+        return False
       q = '''select * from probes where bssid="%s" and essid="%s"'''%(probe["bssid"], probe["essid"])
       res = self.fetchone(q)
       if res is None:
