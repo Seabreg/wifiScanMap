@@ -90,7 +90,8 @@ class Application (threading.Thread):
         self.db = sqlite3.connect(db, check_same_thread=False)
         def to_text(text):
           try:
-            return text.decode('utf8')
+            text.decode('utf-8')
+            return text
           except:
             self.log('sqlite', 'encoding error '+text)
             return 'encoding_error'

@@ -59,7 +59,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       # push data
-      self.wfile.write(json.dumps(status))
+      self.wfile.write(json.dumps(status, ensure_ascii=False))
     
     def _get_file(self, path):
       _path = os.path.join(self.server.www_directory,path)
@@ -112,7 +112,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         d["encryption"] = n[2]
         data.append(d)
       
-      self.wfile.write(json.dumps(data))
+      self.wfile.write(json.dumps(data, ensure_ascii=False))
     
     def _get_stations(self, search = None):
       self.send_response(200)
@@ -120,7 +120,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       data = self.server.app.getAllStations(search)
-      self.wfile.write(json.dumps(data))
+      self.wfile.write(json.dumps(data, ensure_ascii=False))
     
     def _get_devices(self):
       self.send_response(200)
@@ -128,7 +128,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       data = self.server.app.getDevices()
-      self.wfile.write(json.dumps(data))
+      self.wfile.write(json.dumps(data, ensure_ascii=False))
     
     def _get_bt_stations(self, search = None):
       self.send_response(200)
@@ -136,11 +136,11 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       data = self.server.app.getAllBtStations(search)
-      self.wfile.write(json.dumps(data))
+      self.wfile.write(json.dumps(data, ensure_ascii=False))
     
     def _get_probes(self, essid = None):
       self.send_response(200)
-      self.send_header('Content-type','application/json')
+      self.send_header('Content-type','application/json; charset=utf-8')
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       if essid is not None:
@@ -155,7 +155,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           s["ap"] = n[2]
           data.append(s)
       
-      self.wfile.write(json.dumps(data))
+      self.wfile.write(json.dumps(data, ensure_ascii=False))
     
     def _get_csv(self):
       #try:
@@ -182,7 +182,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       stats = self.server.app.getStats(True)
-      self.wfile.write(json.dumps(stats))
+      self.wfile.write(json.dumps(stats, ensure_ascii=False))
     
     def setParam(self, key,value):
       if key == 'minAccuracy':
@@ -190,7 +190,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         self.send_header('Content-type','text/html')
         self.end_headers()
         self.server.app.args.accuracy = float(value)
-        self.wfile.write(json.dumps('ok'))
+        self.wfile.write(json.dumps('ok', ensure_ascii=False))
     
     def do_POST(self):
         path,params,args = self._parse_url()
@@ -242,7 +242,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             self.server.app.update_bt_station(station)
             self.server.app.synchronizer.update(hostname, 'bt_stations', station['date'])
           
-          self.wfile.write(json.dumps('ok'))
+          self.wfile.write(json.dumps('ok', ensure_ascii=False))
     
     def _get_manufacturer(self, manufacturer):
       basepath = os.path.join('img','manufacturer')
@@ -259,7 +259,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       station = self.server.app.getStation(bssid)
-      self.wfile.write(json.dumps(station))
+      self.wfile.write(json.dumps(station, ensure_ascii=False))
     
     def _get_synchronize(self):
       self.send_response(200)
@@ -267,7 +267,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       sync = self.server.app.synchronizer.synchronize()
-      self.wfile.write(json.dumps(sync))
+      self.wfile.write(json.dumps(sync, ensure_ascii=False))
     
     def _get_sync(self, hostname):
       self.send_response(200)
@@ -275,7 +275,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       sync = self.server.app.get_sync(hostname)
-      self.wfile.write(json.dumps(sync))
+      self.wfile.write(json.dumps(sync, ensure_ascii=False))
       
       
     
