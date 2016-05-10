@@ -10,6 +10,10 @@ It was tested on recent debian / ubuntu and a flying raspberry 1
 ![Plane](doc/plane.png)
 
 
+## Esp8266
+An esp8266 version is available here [esp8266-wifiScanMap](https://github.com/mehdilauters/esp8266-wifiScanMap)
+
+
 ## installation
 - bower install
 - sudo apt install gpsd aircrack-ng bluez
