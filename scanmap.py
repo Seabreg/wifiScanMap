@@ -319,7 +319,7 @@ class Application (threading.Thread):
           station['bssid'] = s[1]
           station['class'] = s[2]
           station['class_description'] = self.bluePoller.get_major_device_description(self.bluePoller.parse_class(station['class']))
-          station['name'] = s[3]
+          station['name'] = s[3].replace('\\','')
           station['latitude'] = s[4]
           station['longitude'] = s[5]
           station['date'] = s[6]
@@ -355,7 +355,7 @@ class Application (threading.Thread):
         for p in res:
           probes.append({
             'bssid': p[0],
-            'essid': p[1],
+            'essid': p[1].replace('\\',''),
             'date': p[2],
             'manufacturer': self.getManufacturer(p[0])
             })
@@ -370,6 +370,8 @@ class Application (threading.Thread):
         if date is not None:
           date_where = 'where date > "%s"'%date
         q = 'select * from wifis %s order by latitude, longitude'%date_where
+        
+        # should create an object replace('\\','')
         wifis["networks"] = self.fetchall(q)
         
         q = 'select avg(latitude), avg(longitude) from wifis %s group by date order by date desc limit 1'%date_where

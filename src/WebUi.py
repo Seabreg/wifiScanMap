@@ -208,41 +208,48 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           post = self.rfile.read(length)
           post = post.decode('string-escape').strip('"')
           
-          data = json.loads(post,strict=False)
-          hostname = data['hostname']
+          try:
           
-          if data['position'] is not None:
-            self.server.app.synchronizer.update_position(hostname, data['position'])
-          
-          for n in data['ap']:
-            network = {}
-            network['bssid'] = n[0]
-            network['essid'] = n[1]
-            network['encryption'] = n[2]
-            network['signal'] = n[3]
-            network['longitude'] = n[4]
-            network['latitude'] = n[5]
-            network['frequency'] = n[6]
-            network['channel'] = n[7]
-            network['mode'] = n[8]
-            network['date'] = n[9]
-            network['gps'] = n[10]
-            self.server.app.update(network)
-            self.server.app.synchronizer.update(hostname, 'ap', network['date'])
-          
-          for probe in data['probes']:
-            self.server.app.update_probe(probe)
-            self.server.app.synchronizer.update(hostname, 'probes', probe['date'])
-          
-          for station in data['stations']:
-            self.server.app.update_station(station)
-            self.server.app.synchronizer.update(hostname, 'stations', station['date'])
-          
-          for station in data['bt_stations']:
-            self.server.app.update_bt_station(station)
-            self.server.app.synchronizer.update(hostname, 'bt_stations', station['date'])
-          
-          self.wfile.write(json.dumps('ok', ensure_ascii=False))
+            data = json.loads(post,strict=False)
+            hostname = data['hostname']
+            
+            if data['position'] is not None:
+              self.server.app.synchronizer.update_position(hostname, data['position'])
+            
+            for n in data['ap']:
+              network = {}
+              network['bssid'] = n[0]
+              network['essid'] = n[1]
+              network['encryption'] = n[2]
+              network['signal'] = n[3]
+              network['longitude'] = n[4]
+              network['latitude'] = n[5]
+              network['frequency'] = n[6]
+              network['channel'] = n[7]
+              network['mode'] = n[8]
+              network['date'] = n[9]
+              network['gps'] = n[10]
+              self.server.app.update(network)
+              self.server.app.synchronizer.update(hostname, 'ap', network['date'])
+            
+            for probe in data['probes']:
+              self.server.app.update_probe(probe)
+              self.server.app.synchronizer.update(hostname, 'probes', probe['date'])
+            
+            for station in data['stations']:
+              self.server.app.update_station(station)
+              self.server.app.synchronizer.update(hostname, 'stations', station['date'])
+            
+            for station in data['bt_stations']:
+              self.server.app.update_bt_station(station)
+              self.server.app.synchronizer.update(hostname, 'bt_stations', station['date'])
+            
+            self.wfile.write(json.dumps('ok', ensure_ascii=False))
+          except Exception as e:
+            print e
+            f = open('/tmp/sync.json','w')
+            f.write(post)
+            f.close()
     
     def _get_manufacturer(self, manufacturer):
       basepath = os.path.join('img','manufacturer')

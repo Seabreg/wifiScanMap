@@ -55,8 +55,8 @@ class Synchronizer(threading.Thread):
       
       req = urllib2.Request('%s/upload.json'%self.base)
       req.add_header('Content-Type', 'application/json')
-      response = urllib2.urlopen(req, json.dumps(data), context=self.context)
-      print "Position synced"
+      response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
+      self.application.log('Sync',"Position synced")
       return True
     return True
 
@@ -74,8 +74,8 @@ class Synchronizer(threading.Thread):
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
-    response = urllib2.urlopen(req, json.dumps(data), context=self.context)
-    print "network synced"
+    response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
+    self.application.log('Sync',"network synced")
     return True
   
   def synchronize_probes(self, date):
@@ -92,8 +92,8 @@ class Synchronizer(threading.Thread):
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
-    response = urllib2.urlopen(req, json.dumps(data), context=self.context)
-    print "probes synced"
+    response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
+    self.application.log('Sync',"probes synced")
     return True
   
   def synchronize_stations(self, date):
@@ -110,8 +110,8 @@ class Synchronizer(threading.Thread):
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
-    response = urllib2.urlopen(req, json.dumps(data), context=self.context)
-    print "stations synced"
+    response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
+    self.application.log('Sync',"stations synced")
     return True
   
   def synchronize_bt_stations(self, date):
@@ -128,14 +128,14 @@ class Synchronizer(threading.Thread):
     }
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
-    response = urllib2.urlopen(req, json.dumps(data), context=self.context)
-    print "bt stations synced"
+    response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
+    self.application.log('Sync',"bt stations synced")
     return True
   
   def run(self):
     time.sleep(5)
     while self.running:
-      
+      delay = 60*10
       try:
         raw = urllib2.urlopen("%s/sync.json?hostname=%s"%(self.base, self.hostname), context=self.context)
         data = json.loads(raw.read())
@@ -172,8 +172,9 @@ class Synchronizer(threading.Thread):
         self.synchronize_bt_stations(date_bt_stations)
           
       except:
-        print "Sync unavailable"
-      time.sleep(60)
+        self.application.log('Sync',"Sync unavailable")
+        delay = 30
+      time.sleep(delay)
 
   def stop(self):
       self.running = False
