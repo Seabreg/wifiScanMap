@@ -311,30 +311,33 @@
         this.colors = {};
         
         for(var i in response.data) {
-          
-          if(this.colors[response.data[i]['bssid']] == undefined) {
-            this.colors[response.data[i]['bssid']] = '#'+Math.random().toString(16).slice(-3);
-          }
+          try {
+            if(this.colors[response.data[i]['bssid']] == undefined) {
+              this.colors[response.data[i]['bssid']] = '#'+Math.random().toString(16).slice(-3);
+            }
 
-          var point = new ol.geom.Point( ol.proj.transform([response.data[i]["longitude"], response.data[i]["latitude"]], 'EPSG:4326', 'EPSG:3857'));
-            var station = new ol.Feature({
-              geometry: point,
-              station : response.data[i]
-            });
-            var pointStyle = new ol.style.Style({
-              image: new ol.style.Circle({
-                //               fill: new ol.style.Fill({
-                //                 color: color
-                //               }),
-                stroke: new ol.style.Stroke({
-                  color: this.colors[response.data[i]['bssid']],
-                  width: 2
-                }),
-                radius: 4,
+            var point = new ol.geom.Point( ol.proj.transform([response.data[i]["longitude"], response.data[i]["latitude"]], 'EPSG:4326', 'EPSG:3857'));
+              var station = new ol.Feature({
+                geometry: point,
+                station : response.data[i]
+              });
+              var pointStyle = new ol.style.Style({
+                image: new ol.style.Circle({
+                  //               fill: new ol.style.Fill({
+                  //                 color: color
+                  //               }),
+                  stroke: new ol.style.Stroke({
+                    color: this.colors[response.data[i]['bssid']],
+                    width: 2
+                  }),
+                  radius: 4,
+                })
               })
-            })
-            station.setStyle(pointStyle);
-            this.stationsSource.addFeature( station );
+              station.setStyle(pointStyle);
+              this.stationsSource.addFeature( station );
+          } catch(e) {
+            console.log(e);
+          }
         }
         if(self.$location.search('terms') != undefined)
         {
