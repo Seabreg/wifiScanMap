@@ -9,6 +9,7 @@ import socket
 
 class Synchronizer(threading.Thread):
   def __init__(self, application, uri):
+    self.esp8266 = {}
     self.application = application
     threading.Thread.__init__(self)
     self.running = True #setting the thread running to true
@@ -17,11 +18,15 @@ class Synchronizer(threading.Thread):
     self.hostname = socket.gethostname()
     self.context = ssl._create_unverified_context()
 
-  def update(self, hostname, entity, date):
+  def update(self, hostname, entity, date = None):
+    if date is None:
+      date = 'CURRENT_TIMESTAMP'
+    else:
+      date = '"%s"'%date
     q = '''select * from sync where hostname="%s" and entity="%s"'''%(hostname, entity)
     res = self.application.fetchone(q)
     if res is not None:
-      q = '''update sync set date = "%s" where hostname="%s" and entity="%s"'''%(date, hostname, entity)
+      q = '''update sync set date = %s where hostname="%s" and entity="%s"'''%(date, hostname, entity)
     else:
       q = '''insert into sync (hostname, entity, date) values ("%s", "%s", CURRENT_TIMESTAMP) '''%(hostname, entity)
     self.application.query(q)
@@ -131,6 +136,91 @@ class Synchronizer(threading.Thread):
     response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
     self.application.log('Sync',"bt stations synced")
     return True
+  
+  def synchronize_data(self, data):
+    hostname = data['hostname']
+      
+    if data['position'] is not None:
+      self.update_position(hostname, data['position'])
+    
+    for n in data['ap']:
+      network = {}
+      network['bssid'] = n[0]
+      network['essid'] = n[1]
+      network['encryption'] = n[2]
+      network['signal'] = n[3]
+      network['longitude'] = n[4]
+      network['latitude'] = n[5]
+      network['frequency'] = n[6]
+      network['channel'] = n[7]
+      network['mode'] = n[8]
+      network['date'] = n[9]
+      network['gps'] = n[10]
+      self.application.update(network)
+      self.update(hostname, 'ap', network['date'])
+    
+    for probe in data['probes']:
+      self.application.update_probe(probe)
+      self.update(hostname, 'probes', probe['date'])
+    
+    for station in data['stations']:
+      self.application.update_station(station)
+      self.update(hostname, 'stations', station['date'])
+    
+    for station in data['bt_stations']:
+      self.application.update_bt_station(station)
+      self.update(hostname, 'bt_stations', station['date'])
+  
+  def synchronize_esp8266(self, data):
+    self.application.log('Sync esp8266',"synchro")
+    hostname = data['hostname']
+    
+    position = None
+    if data.has_key("ap") and len(data["ap"]) > 0:
+      self.esp8266[hostname] = self.application.getWifiPosition(data["ap"])
+    if self.esp8266.has_key(hostname):
+      position = self.esp8266[hostname]
+    else:
+      self.application.log('Sync esp8266',"Position unavailable")
+    
+    if position is None:
+      return False
+    
+    self.update_position(hostname, {'latitude':position[0], 'longitude':position[1], 'source':'wifi' })
+    
+    aps = 0
+    try:
+      for n in data['ap']:
+        n['longitude'] = position[1]
+        n['latitude'] = position[0]
+        n['frequency'] = '""'
+        n['mode'] = 'Master'
+        n['gps'] = False
+        self.application.update(n)
+        self.update(hostname, 'ap' )
+        aps += 1
+    except:
+      self.application.log('Sync esp8266',"ap update fail")
+    
+    probes = 0
+    try:
+      for probe in data['probes']:
+        self.application.update_probe(probe)
+        self.update(hostname, 'probes')
+        probes += 1
+    except:
+      self.application.log('Sync esp8266',"probe update fail")
+    
+    try:
+      stations = 0
+      for station in data['stations']:
+        self.application.update_station(station)
+        self.update(hostname, 'stations')
+        stations += 1
+    except:
+      self.application.log('Sync esp8266',"stations update fail")
+      
+    self.application.log('Sync %s'%hostname,"%d aps, %d probes, %d stations"%(aps, probes, stations))
   
   def run(self):
     time.sleep(5)

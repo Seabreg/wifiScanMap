@@ -766,7 +766,7 @@ class Application (threading.Thread):
         return None
       for n in wifis:
         bssid.append("\"%s\""%n["bssid"])
-      q = "select avg(latitude), avg(longitude), max(latitude)-min(latitude), max(longitude)-min(longitude) from wifis where bssid in ( %s )"%(','.join(bssid))
+      q = "select sum(-signal*latitude)/sum(-signal), sum(-signal*longitude)/sum(-signal), max(latitude)-min(latitude), max(longitude)-min(longitude) from wifis where bssid in ( %s )"%(','.join(bssid))
       res = self.fetchone(q)
       if res is not None:
         if res[0] is None:

@@ -192,64 +192,48 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         self.server.app.args.accuracy = float(value)
         self.wfile.write(json.dumps('ok', ensure_ascii=False))
     
+    def _post_upload(self, post):
+      if(not self.server.app.args.enable):
+        self.send_response(403)
+        return
+      self.send_response(200)
+      self.send_header('Content-type','text/html')
+      self.end_headers()
+
+      data = json.loads(post,strict=False)
+      self.server.app.synchronizer.synchronize_data(data)
+      self.wfile.write(json.dumps('ok', ensure_ascii=False))
+     
+    def _post_esp8266(self, post):
+      if(not self.server.app.args.enable):
+        self.send_response(403)
+        return
+      self.send_response(200)
+      self.send_header('Content-type','text/html')
+      self.end_headers()
+      
+      data = json.loads(post,strict=False)
+      self.server.app.synchronizer.synchronize_esp8266(data)
+
     def do_POST(self):
         path,params,args = self._parse_url()
         if ('..' in args) or ('.' in args):
             self.send_400()
             return
-        if len(args) == 1 and args[0] == 'upload.json':
-          if(not self.server.app.args.enable):
-            self.send_response(403)
-            return
-          self.send_response(200)
-          self.send_header('Content-type','text/html')
-          self.end_headers()
+        try:
           length = int(self.headers['Content-Length'])
           post = self.rfile.read(length)
           post = post.decode('string-escape').strip('"')
+          if len(args) == 1 and args[0] == 'upload.json':
+            return self._post_upload(post)
           
-          try:
-          
-            data = json.loads(post,strict=False)
-            hostname = data['hostname']
-            
-            if data['position'] is not None:
-              self.server.app.synchronizer.update_position(hostname, data['position'])
-            
-            for n in data['ap']:
-              network = {}
-              network['bssid'] = n[0]
-              network['essid'] = n[1]
-              network['encryption'] = n[2]
-              network['signal'] = n[3]
-              network['longitude'] = n[4]
-              network['latitude'] = n[5]
-              network['frequency'] = n[6]
-              network['channel'] = n[7]
-              network['mode'] = n[8]
-              network['date'] = n[9]
-              network['gps'] = n[10]
-              self.server.app.update(network)
-              self.server.app.synchronizer.update(hostname, 'ap', network['date'])
-            
-            for probe in data['probes']:
-              self.server.app.update_probe(probe)
-              self.server.app.synchronizer.update(hostname, 'probes', probe['date'])
-            
-            for station in data['stations']:
-              self.server.app.update_station(station)
-              self.server.app.synchronizer.update(hostname, 'stations', station['date'])
-            
-            for station in data['bt_stations']:
-              self.server.app.update_bt_station(station)
-              self.server.app.synchronizer.update(hostname, 'bt_stations', station['date'])
-            
-            self.wfile.write(json.dumps('ok', ensure_ascii=False))
-          except Exception as e:
-            print e
-            f = open('/tmp/sync.json','w')
-            f.write(post)
-            f.close()
+          if len(args) == 1 and args[0] == 'esp8266.json':
+            return self._post_esp8266(post)
+        except Exception as e:
+          print e
+          f = open('/tmp/sync.json','w')
+          f.write(post)
+          f.close()
     
     def _get_manufacturer(self, manufacturer):
       basepath = os.path.join('img','manufacturer')
