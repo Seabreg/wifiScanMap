@@ -43,6 +43,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       status["stat"] = self.server.app.getStats()
       status["updates_count"] = self.server.app.updates_count
       status["current"] = self.server.app.getCurrent()
+      status['esp8266'] = self.server.app.synchronizer.get_esp8266_data()
       
       if gps_status:
           status['position']['gps']['latitude'] = self.server.app.session.fix.latitude
@@ -59,7 +60,12 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
       # push data
-      self.wfile.write(json.dumps(status, ensure_ascii=False))
+      data = json.dumps(status, ensure_ascii=False)
+      try:
+        self.wfile.write(data.encode('latin-1'))
+      except Exception as e:
+        print e
+        print data
     
     def _get_file(self, path):
       _path = os.path.join(self.server.www_directory,path)
@@ -220,20 +226,20 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         if ('..' in args) or ('.' in args):
             self.send_400()
             return
-        try:
-          length = int(self.headers['Content-Length'])
-          post = self.rfile.read(length)
-          post = post.decode('string-escape').strip('"')
-          if len(args) == 1 and args[0] == 'upload.json':
-            return self._post_upload(post)
-          
-          if len(args) == 1 and args[0] == 'esp8266.json':
-            return self._post_esp8266(post)
-        except Exception as e:
-          print e
-          f = open('/tmp/sync.json','w')
-          f.write(post)
-          f.close()
+        #try:
+        length = int(self.headers['Content-Length'])
+        post = self.rfile.read(length)
+        post = post.decode('string-escape').strip('"')
+        if len(args) == 1 and args[0] == 'upload.json':
+          return self._post_upload(post)
+        
+        if len(args) == 1 and args[0] == 'esp8266.json':
+          return self._post_esp8266(post)
+        #except Exception as e:
+          #print e
+          #f = open('/tmp/sync_esp8266.json','w')
+          #f.write(post)
+          #f.close()
     
     def _get_manufacturer(self, manufacturer):
       basepath = os.path.join('img','manufacturer')
@@ -321,6 +327,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
             return self._get_file(path)
       
 class WebuiHTTPServer(ThreadingMixIn, HTTPServer, Thread):
+  allow_reuse_address = True
+  
   def __init__(self, server_address, app, RequestHandlerClass, bind_and_activate=True):
     HTTPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
     threading.Thread.__init__(self)

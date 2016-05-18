@@ -42,6 +42,27 @@
             <hr/>
               </li>
             </ul>
+            
+            
+            <ul>
+              <li ng-repeat="(esp,esp_value) in status.esp8266">
+                {{esp}}
+                <ul>
+                  <li ng-repeat="wifi in esp_value.current.wifis">
+                    <div class="manufacturer">&nbsp;{{wifi.manufacturer}}</div>
+                    
+                    <div class="progress">
+                    <div class="progress-bar" role="progressbar" aria-valuenow="70"
+                    aria-valuemin="0" aria-valuemax="100" style="width:{{100+wifi.signal}}%">
+                      <a href="/#?wifis=true&terms={{wifi.essid}}" >{{wifi.essid}}</a>
+                    </div>
+                    </div>
+                    <hr/>
+                  </li>
+                </ul>
+            </ul>
+            
+            
           </div>
           <div id="currentProbesContainer" >
           <img src="/img/probe.png" alt="probes-logo" /> {{status.updates_count.probes}}
@@ -62,6 +83,27 @@
               <hr/>
             </li>
           </ul>
+            <ul>
+              <li ng-repeat="(esp,esp_value) in status.esp8266">
+                {{esp}}
+                <ul>
+                  <li ng-repeat="probe in esp_value.current.probes" ng-class="get_station_class(probe.bssid)" ng-mouseenter="select(get_station_class(probe.bssid))" ng-mouseleave="unselect(get_station_class(probe.bssid))">
+              <div class="manufacturer">
+                <div ng-if="probe.ap != 0" >
+                  <a href="/#?wifis=true&terms={{probe.essid}}" >#{{probe.ap}} <img src="/img/pin.png" /> </a>
+                </div>
+              </div>
+              <div class="progress">
+                <div class="progress-bar" role="progressbar" aria-valuenow="70"
+                aria-valuemin="0" aria-valuemax="100" style="width:{{100+probe.signal}}%">
+                  <a href="/probes.html#?essid={{probe.essid}}">{{probe.essid}}</a>
+                </div>
+              </div>
+              <hr/>
+            </li>
+            </ul>   
+          </ul>
+          
           </div>
           <div id="currentStationsContainer" >
           <img src="/img/station.png" alt="stations-logo" /> {{status.updates_count.stations}}
@@ -84,7 +126,33 @@
               <hr/>
             </li>
           </ul>
+          
+          <ul>
+              <li ng-repeat="(esp,esp_value) in status.esp8266">
+                {{esp}}
+                <ul>
+                  <li ng-repeat="station in esp_value.current.stations" ng-class="get_station_class(station.bssid)" ng-mouseenter="select(get_station_class(station.bssid))" ng-mouseleave="unselect(get_station_class(station.bssid))">
+                <div class="manufacturer">&nbsp;{{station.manufacturer}}</div>
+                <div class="device-type" ng-class="{'android':station.manufacturer == 'Google', 'apple':station.manufacturer == 'Apple', 'microsoft':station.manufacturer == 'Microsof', 'mobile':station.mobile, 'no-mobile':!station.mobile}" ></div>
+                <div class="progress">
+                  <div class="progress-bar" role="progressbar" aria-valuenow="70"
+                  aria-valuemin="0" aria-valuemax="100" style="width:{{100+station.signal}}%">
+                    <a href="/station.html#?bssid={{station.bssid}}" >{{station.bssid}}</a>
+                  </div>
+                </div>
+                <div>
+                  <canvas id="station-view-days" class="chart chart-bar"
+                    chart-data="data_stations[$index]" chart-labels="labels_stations[$index]"  animation="false" >
+                  </canvas>
+                </div>
+                <hr/>
+              </li>
+            </ul>   
+          </ul>
+          
         </div>
+        
+        
         <div id="currentStationsContainer" >
           <img src="/img/bluetooth.png" alt="bluetooth-stations-logo" /> {{status.updates_count.bt_stations}}
           <hr/>

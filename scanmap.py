@@ -344,12 +344,15 @@ class Application (threading.Thread):
         
       return devices
     
-    def getAllProbes(self, distinct = False, essid = None):
+    def getAllProbes(self, distinct = False, essid = None, date = None):
       essid_where = ""
+      date_where = ""
       if essid is not None:
         essid_where = 'where essid = "%s"'%essid
+      if date is not None:
+        date_where = 'where date >= "%s"'%date
       if not distinct:
-        q = 'select * from probes %s order by essid'%essid_where
+        q = 'select * from probes %s %s order by essid'%(essid_where, date_where)
         res = self.fetchall(q)
         probes = []
         for p in res:
@@ -361,7 +364,7 @@ class Application (threading.Thread):
             })
         return probes
       else:
-        q = 'select P.essid, count(*) as probes_count, (select count(*) from wifis W where W.essid = P.essid) as wifis_count from probes P %s group by P.essid order by probes_count desc, wifis_count desc'%essid_where
+        q = 'select P.essid, count(*) as probes_count, (select count(*) from wifis W where W.essid = P.essid) as wifis_count from probes P %s %s group by P.essid order by probes_count desc, wifis_count desc'%(essid_where, date_where)
         return self.fetchall(q)
     
     def getAll(self, date = None):

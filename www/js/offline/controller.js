@@ -53,42 +53,46 @@
         }
         self.$scope.status = response.data;
         self.$scope.link_status = true;
-        if(response.data['position']['wifi']['fix']) {
-          self.$scope.status['position']['wifi']['accuracy'] = Math.round(self.$scope.status['position']['wifi']['accuracy']);
-        }
-        if(response.data['position']['gps']['fix']) {
-          self.$scope.status['position']['gps']['accuracy'] = Math.round(self.$scope.status['position']['gps']['accuracy']);
-        }
-        
-        this.$scope.labels_stations = [];
-        this.$scope.data_stations = [];
-        
-        for(var i in response.data['current']['stations']) {
-          var labels = [];
-          var data = [[]];
-          for(var j in response.data['current']['stations'][i]['history']) {
-            var day = response.data['current']['stations'][i]['history'][j];
-            labels.push(day[1]);
-            data[0].push(day[2]);
+        try {
+          if(response.data['position']['wifi']['fix']) {
+            self.$scope.status['position']['wifi']['accuracy'] = Math.round(self.$scope.status['position']['wifi']['accuracy']);
           }
-          this.$scope.labels_stations.push(labels);
-          this.$scope.data_stations.push(data);
-        }
-        
-        
-        this.$scope.labels_bt_stations = [];
-        this.$scope.data_bt_stations = [];
-        
-        for(var i in response.data['current']['bluetooth']) {
-          var labels = [];
-          var data = [[]];
-          for(var j in response.data['current']['bluetooth'][i]['history']) {
-            var day = response.data['current']['bluetooth'][i]['history'][j];
-            labels.push(day[1]);
-            data[0].push(day[2]);
+          if(response.data['position']['gps']['fix']) {
+            self.$scope.status['position']['gps']['accuracy'] = Math.round(self.$scope.status['position']['gps']['accuracy']);
           }
-          this.$scope.labels_bt_stations.push(labels);
-          this.$scope.data_bt_stations.push(data);
+        
+          this.$scope.labels_stations = [];
+          this.$scope.data_stations = [];
+          
+          for(var i in response.data['current']['stations']) {
+            var labels = [];
+            var data = [[]];
+            for(var j in response.data['current']['stations'][i]['history']) {
+              var day = response.data['current']['stations'][i]['history'][j];
+              labels.push(day[1]);
+              data[0].push(day[2]);
+            }
+            this.$scope.labels_stations.push(labels);
+            this.$scope.data_stations.push(data);
+          }
+          
+          
+          this.$scope.labels_bt_stations = [];
+          this.$scope.data_bt_stations = [];
+          
+          for(var i in response.data['current']['bluetooth']) {
+            var labels = [];
+            var data = [[]];
+            for(var j in response.data['current']['bluetooth'][i]['history']) {
+              var day = response.data['current']['bluetooth'][i]['history'][j];
+              labels.push(day[1]);
+              data[0].push(day[2]);
+            }
+            this.$scope.labels_bt_stations.push(labels);
+            this.$scope.data_bt_stations.push(data);
+          }
+        } catch(e) {
+          console.log(e);
         }
         
         self.refresh();
