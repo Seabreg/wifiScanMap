@@ -140,7 +140,7 @@ class AirodumpPoller(threading.Thread):
       pos = self.application.getPosition()
       fix = pos is not None
       if fix:
-        lon, lat, source = self.application.getPosition()
+        lon, lat, source = pos
       wifis = []
       stations = []
       probes = []
