@@ -226,20 +226,20 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         if ('..' in args) or ('.' in args):
             self.send_400()
             return
-        #try:
-        length = int(self.headers['Content-Length'])
-        post = self.rfile.read(length)
-        post = post.decode('string-escape').strip('"')
-        if len(args) == 1 and args[0] == 'upload.json':
-          return self._post_upload(post)
-        
-        if len(args) == 1 and args[0] == 'esp8266.json':
-          return self._post_esp8266(post)
-        #except Exception as e:
-          #print e
-          #f = open('/tmp/sync_esp8266.json','w')
-          #f.write(post)
-          #f.close()
+        try:
+          length = int(self.headers['Content-Length'])
+          post = self.rfile.read(length)
+          post = post.decode('string-escape').strip('"')
+          if len(args) == 1 and args[0] == 'upload.json':
+            return self._post_upload(post)
+          
+          if len(args) == 1 and args[0] == 'esp8266.json':
+            return self._post_esp8266(post)
+        except Exception as e:
+          print e
+          f = open('/tmp/sync_esp8266.json','w')
+          f.write(post)
+          f.close()
     
     def _get_manufacturer(self, manufacturer):
       basepath = os.path.join('img','manufacturer')
@@ -271,7 +271,7 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       self.send_header('Content-type','application/json')
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
-      sync = self.server.app.get_sync(hostname)
+      sync = self.server.app.synchronizer.get_sync(hostname)
       self.wfile.write(json.dumps(sync, ensure_ascii=False))
       
       

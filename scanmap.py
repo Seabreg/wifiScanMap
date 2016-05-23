@@ -609,7 +609,10 @@ class Application (threading.Thread):
       
     def commit(self):
       with self.lock:
-        self.db.commit()
+        try:
+          self.db.commit()
+        except:
+          self.log("DB", 'Commit unavailable')
      
     def update_bt_station(self, station):
       if not station.has_key('latitude'):
@@ -815,15 +818,6 @@ class Application (threading.Thread):
                 if(line.find("IEEE 802.11")!=-1):
                         networkInterfaces.append(line.split()[0])
         return networkInterfaces
-    
-    def get_sync(self, hostname):
-      sync = {}
-      q = '''select * from sync where hostname="%s"'''%hostname
-      res = self.fetchall(q)
-      if res is not None:
-        for r in res:
-          sync[r[1]] = r[2]
-      return sync
     
     def getMacFromIface(self, _iface):
       path = "/sys/class/net/%s/address"%_iface

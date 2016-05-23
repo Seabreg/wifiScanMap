@@ -12,6 +12,7 @@ class Synchronizer(threading.Thread):
   def __init__(self, application, uri):
     self.lock = Lock()
     self.esp8266 = {}
+    self.sync_running = {}
     self.application = application
     threading.Thread.__init__(self)
     self.running = True #setting the thread running to true
@@ -155,6 +156,11 @@ class Synchronizer(threading.Thread):
   
   def synchronize_data(self, data):
     hostname = data['hostname']
+    with self.lock:
+      if self.sync_running.has_key(hostname) and self.sync_running[hostname]:
+        return
+      
+      self.sync_running[hostname] = True
       
     if data['position'] is not None:
       self.update_position(hostname, data['position'])
@@ -177,7 +183,6 @@ class Synchronizer(threading.Thread):
       self.update(hostname, 'ap', network['date'])
     
     for probe in data['probes']:
-      print probe
       self.application.update_probe(probe)
       self.update(hostname, 'probes', probe['date'])
     
@@ -188,6 +193,9 @@ class Synchronizer(threading.Thread):
     for station in data['bt_stations']:
       self.application.update_bt_station(station)
       self.update(hostname, 'bt_stations', station['date'])
+      
+    with self.lock:
+      self.sync_running[hostname] = False
   
   def get_esp8266_data(self):
     with self.lock:
@@ -268,6 +276,23 @@ class Synchronizer(threading.Thread):
       
       self.application.log('Sync %s'%hostname,"%d aps, %d probes, %d stations"%(len(networks), len(probes), len(stations)))
   
+  
+  def get_sync(self, hostname):
+    sync = {}
+    sync['date'] = {}
+    q = '''select * from sync where hostname="%s"'''%hostname
+    res = self.application.fetchall(q)
+    if res is not None:
+      for r in res:
+        sync['date'][r[1]] = r[2]
+    
+    sync_status = False
+    with self.lock:
+      if self.sync_running.has_key(hostname):
+        sync_status = self.sync_running[hostname]
+    sync['syncing'] = sync_status
+    return sync
+  
   def run(self):
     time.sleep(5)
     while self.running:
@@ -275,7 +300,7 @@ class Synchronizer(threading.Thread):
       try:
         raw = urllib2.urlopen("%s/sync.json?hostname=%s"%(self.base, self.hostname), context=self.context)
         data = json.loads(raw.read())
-        
+
         if not data['syncing']:
           date_ap = None
           date_probes = None
