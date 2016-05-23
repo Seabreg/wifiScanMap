@@ -344,6 +344,22 @@ class Application (threading.Thread):
         
       return devices
     
+    def getSyncProbes(self, date = None):
+      date_where = ''
+      if date is not None:
+        date_where = 'where date >= "%s"'%date
+
+      q = 'select * from probes %s order by date asc'%date_where
+      res = self.fetchall(q)
+      probes = []
+      for p in res:
+        probes.append({
+         'bssid': p[0],
+         'essid': p[1].replace('\\',''),
+         'date': p[2],
+        }) 
+      return probes
+
     def getAllProbes(self, distinct = False, essid = None, date = None):
       essid_where = ""
       date_where = ""

@@ -84,13 +84,13 @@ class Synchronizer(threading.Thread):
     req.add_header('Content-Type', 'application/json')
     response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
     response.read()
-    self.application.log('Sync',"network synced")
+    self.application.log('Sync',"%s network synced from %s"%(len(res), date))
     return True
   
   def synchronize_probes(self, date):
     if date is None:
       date = '1980-01-01 00:00:00'
-    res = self.application.getAllProbes(date)
+    res = self.application.getSyncProbes(date)
     data = {
       'hostname': self.hostname,
       'ap':[],
@@ -103,13 +103,16 @@ class Synchronizer(threading.Thread):
     req.add_header('Content-Type', 'application/json')
     response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
     response.read()
-    self.application.log('Sync',"probes synced")
+    self.application.log('Sync',"%s probes synced from %s"%(len(res),date))
     return True
   
   def synchronize_stations(self, date):
     if date is None:
       date = '1980-01-01 00:00:00'
-    res = self.application.getAllStations('date > "%s"'%date)
+    res = self.application.getAllStations('date > "%s" order by date asc'%date)
+
+    self.application.log('Sync',"%s stations to be synced %s"%(len(res),date))
+
     data = {
       'hostname': self.hostname,
       'ap':[],
@@ -121,14 +124,20 @@ class Synchronizer(threading.Thread):
     req = urllib2.Request('%s/upload.json'%self.base)
     req.add_header('Content-Type', 'application/json')
     response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
-    response.read()
-    self.application.log('Sync',"stations synced")
+    print "====================>"
+    try:
+      print response.read()
+    except Exception as e:
+      print e
+      
+    print "<===================="
+    self.application.log('Sync',"%s stations synced %s"%(len(res),date))
     return True
   
   def synchronize_bt_stations(self, date):
     if date is None:
       date = '1980-01-01 00:00:00'
-    res = self.application.getAllBtStations('date > "%s"'%date)
+    res = self.application.getAllBtStations('date > "%s" order by date asc'%date)
     data = {
       'hostname': self.hostname,
       'ap':[],
@@ -141,7 +150,7 @@ class Synchronizer(threading.Thread):
     req.add_header('Content-Type', 'application/json')
     response = urllib2.urlopen(req, json.dumps(data, ensure_ascii=False), context=self.context)
     response.read()
-    self.application.log('Sync',"bt stations synced")
+    self.application.log('Sync',"%s bt stations synced from %s"%(len(res), date))
     return True
   
   def synchronize_data(self, data):
@@ -267,36 +276,39 @@ class Synchronizer(threading.Thread):
         raw = urllib2.urlopen("%s/sync.json?hostname=%s"%(self.base, self.hostname), context=self.context)
         data = json.loads(raw.read())
         
-        date_ap = None
-        date_probes = None
-        date_stations = None
-        date_bt_stations = None
-        
-        try:
-          date_ap = data['ap'].split('.')[0]
-        except:
-          pass
-        
-        try:
-          date_probes = data['probes'].split('.')[0]
-        except:
-          pass
-        
-        try:
-          date_stations = data['stations'].split('.')[0]
-        except:
-          pass
-        
-        try:
-          date_bt_stations = data['bt_stations'].split('.')[0]
-        except:
-          pass
-        
-        self.syncronize_position()
-        self.synchronize_ap(date_ap)
-        self.synchronize_probes(date_probes)
-        self.synchronize_stations(date_stations)
-        self.synchronize_bt_stations(date_bt_stations)
+        if not data['syncing']:
+          date_ap = None
+          date_probes = None
+          date_stations = None
+          date_bt_stations = None
+          
+          try:
+            date_ap = data['date']['ap'].split('.')[0]
+          except:
+            pass
+          
+          try:
+            date_probes = data['date']['probes'].split('.')[0]
+          except:
+            pass
+          
+          try:
+            date_stations = data['date']['stations'].split('.')[0]
+          except:
+            pass
+          
+          try:
+            date_bt_stations = data['date']['bt_stations'].split('.')[0]
+          except:
+            pass
+          
+          self.syncronize_position()
+          self.synchronize_ap(date_ap)
+          self.synchronize_probes(date_probes)
+          self.synchronize_stations(date_stations)
+          self.synchronize_bt_stations(date_bt_stations)
+        else:
+          self.application.log('Sync',"already syncing")
           
       except:
         self.application.log('Sync',"Sync unavailable")
@@ -305,3 +317,4 @@ class Synchronizer(threading.Thread):
 
   def stop(self):
       self.running = False
+
