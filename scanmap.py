@@ -625,6 +625,14 @@ class Application (threading.Thread):
         return True
       return False
     
+    def delete(self, bssid):
+      q = 'delete from wifis where bssid = "%s"'%bssid
+      self.query(q)
+      q = 'delete from stations where bssid = "%s"'%bssid
+      self.query(q)
+      q = 'delete from bt_stations where bssid = "%s"'%bssid
+      self.query(q)
+      
     def update(self, wifi):
         if  wifi['essid'] == 'encoding_error':
           return False
@@ -637,7 +645,7 @@ class Application (threading.Thread):
         if(wifi.has_key('date')):
           date_str = '"%s"'%wifi['date']
                 
-        q = '''select * from wifis where bssid="%s" and essid="%s"'''%(wifi["bssid"], wifi["essid"])
+        q = '''select * from wifis where bssid="%s" and ( essid="%s" or bssid == "" )'''%(wifi["bssid"], wifi["essid"])
         res = self.fetchone(q)
         if res is None:
             gps = 0
@@ -783,12 +791,12 @@ class Application (threading.Thread):
         
             
     def getWifiPosition(self, wifis):
-      bssid = []
+      where = []
       if len(wifis) < 3:
         return None
       for n in wifis:
-        bssid.append("\"%s\""%n["bssid"])
-      q = "select sum(-signal*latitude)/sum(-signal), sum(-signal*longitude)/sum(-signal), max(latitude)-min(latitude), max(longitude)-min(longitude) from wifis where bssid in ( %s )"%(','.join(bssid))
+        where.append('( bssid = "%s" and essid = "%s")'%(n["bssid"],n["essid"]))
+      q = "select sum(-signal*latitude)/sum(-signal), sum(-signal*longitude)/sum(-signal), max(latitude)-min(latitude), max(longitude)-min(longitude) from wifis where %s"%(' or '.join(where))
       res = self.fetchone(q)
       if res is not None:
         if res[0] is None:

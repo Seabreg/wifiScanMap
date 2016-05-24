@@ -274,7 +274,13 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       sync = self.server.app.synchronizer.get_sync(hostname)
       self.wfile.write(json.dumps(sync, ensure_ascii=False))
       
-      
+    def _get_delete(self, bssid):
+      self.send_response(200)
+      self.send_header('Content-type','application/json')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      delete = self.server.app.delete(bssid)
+      self.wfile.write(json.dumps(delete, ensure_ascii=False))
     
     def do_GET(self):
         path,params,args = self._parse_url()
@@ -323,6 +329,10 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           if params is not None:
               params = params.split('hostname=')[1]
           return self._get_sync(params)
+        elif len(args) == 1 and args[0] == 'delete.json':
+          if params is not None:
+              params = params.split('bssid=')[1]
+          return self._get_delete(params)
         else:
             return self._get_file(path)
       

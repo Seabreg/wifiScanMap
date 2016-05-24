@@ -8,6 +8,7 @@
     "ol3": "ol3-bower#^3.14.2",
     "jquery-ui": "^1.11.4",
     "jquery": "^2.2.3",
-    "angular-chart.js": "^0.10.2"
+    "angular-chart.js": "^0.10.2",
+    "font-awesome": "fontawesome#^4.6.3"
   }
 }
