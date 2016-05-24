@@ -22,6 +22,7 @@ from src.AirodumpPoller import *
 from src.BluetoothPoller import *
 from src.Synchronizer import *
 from src.WebUi import *
+from src.DnsServer import *
 
 #meters
 min_gpsd_accuracy = 30
@@ -45,6 +46,7 @@ def parse_args():
     parser.add_argument("-i", "--interface", help="wifi interface")    
     parser.add_argument("-s", "--sleep", help="wifi interface")  
     parser.add_argument("-d", "--database", help="wifi database")
+    parser.add_argument("-n", "--dns", action='store_true', help="dns name server for dns data exfiltration")
     parser.add_argument('-w', '--www', help='www port')
     parser.add_argument('-p', '--position', help='lat,lon position')
     parser.add_argument('-l', '--log', action='store_true', help='lat,lon position')
@@ -72,9 +74,14 @@ class Application (threading.Thread):
         self.ignore_bssid = []
         self.interface = ''
         self.airodump = None
+        self.dns = None
         self.wifiPosition = None
         self.bluePoller = BluetoothPoller(self)
         self.updates_count = {'wifis':0, 'probes':0, 'stations':0, 'bt_stations':0}
+        
+        if self.args.dns:
+          self.dns = DnsServer(self)
+          self.dns.start()
         
         if self.args.position is not None:
           lat, lon = self.args.position.split(',')
