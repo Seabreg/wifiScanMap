@@ -803,12 +803,26 @@ class Application (threading.Thread):
         return None
       for n in wifis:
         where.append('( bssid = "%s" and essid = "%s")'%(n["bssid"],n["essid"]))
-      q = "select sum(-signal*latitude)/sum(-signal), sum(-signal*longitude)/sum(-signal), max(latitude)-min(latitude), max(longitude)-min(longitude) from wifis where %s"%(' or '.join(where))
-      res = self.fetchone(q)
+      q = "select -signal*latitude/-signal, -signal*longitude/-signal from wifis where %s order by latitude asc, longitude asc"%(' or '.join(where))
+      res = self.fetchall(q)
       if res is not None:
-        if res[0] is None:
-          return None
-        return (res[0], res[1], self.haversine(0,0,res[2],res[3]))
+        #compute median
+        q2_index = int(len(res)/2)
+        q1_index = int(q2_index/2)
+        q3_index = int(q2_index + q2_index/2)
+        
+        #intercatile
+        intercatile = (res[q3_index][0], res[q3_index][1])
+        inferior_limits = (res[q3_index][0] + intercatile[0]*1.5, res[q3_index][1] + intercatile[1]*1.5)
+        exterior_limits = (res[q3_index][0] + intercatile[0]*3, res[q3_index][1] + intercatile[1]*3)
+        
+        q = "select sum(-signal*latitude)/sum(-signal), sum(-signal*longitude)/sum(-signal) from wifis where %s and latitude > %s and longitude > %s and latitude < %s and longitude <%s "%(' or '.join(where), inferior_limits[0], inferior_limits[1], exterior_limits[0], exterior_limits[1] )
+        res = self.fetchone(q)
+        if res is not None:
+          if res[0] is None:
+            return None
+          return (res[0], res[1], self.haversine(inferior_limits[0], inferior_limits[1], exterior_limits[0], exterior_limits[1]))
+        return None
            
     def getPosition(self):
       if self.args.position is not None:

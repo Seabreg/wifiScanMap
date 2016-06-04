@@ -29,7 +29,7 @@ class Synchronizer(threading.Thread):
     q = '''select * from sync where hostname="%s" and entity="%s"'''%(hostname, entity)
     res = self.application.fetchone(q)
     if res is not None:
-      q = '''update sync set date = %s where hostname="%s" and entity="%s"'''%(date, hostname, entity)
+      q = '''update sync set date = %s where hostname="%s" and entity="%s" and date < %s'''%(date, hostname, entity, date)
     else:
       q = '''insert into sync (hostname, entity, date) values ("%s", "%s", CURRENT_TIMESTAMP) '''%(hostname, entity)
     self.application.query(q)
@@ -224,25 +224,25 @@ class Synchronizer(threading.Thread):
 
       
       
-      networks = []
-      try:
-        for n in data['ap']:
-          network = {}
-          network['bssid'] = n['b']
-          network['essid'] = n['e']
-          network['encryption'] = n['k']
-          network['signal'] = int(n['s'])
-          network['longitude'] = position[1]
-          network['latitude'] = position[0]
-          network['frequency'] = '""'
-          network['channel'] = n['c']
-          network['mode'] = 'Master'
-          network['gps'] = False
-          self.application.update(network)        
-          self.update(hostname, 'ap' )
-          networks.append(network);
-      except:
-        self.application.log('Sync esp8266',"ap update fail")
+      #networks = []
+      #try:
+        #for n in data['ap']:
+          #network = {}
+          #network['bssid'] = n['b']
+          #network['essid'] = n['e']
+          #network['encryption'] = n['k']
+          #network['signal'] = int(n['s'])
+          #network['longitude'] = position[1]
+          #network['latitude'] = position[0]
+          #network['frequency'] = '""'
+          #network['channel'] = n['c']
+          #network['mode'] = 'Master'
+          #network['gps'] = False
+          #self.application.update(network)        
+          #self.update(hostname, 'ap' )
+          #networks.append(network);
+      #except:
+        #self.application.log('Sync esp8266',"ap update fail")
       
       self.esp8266[hostname]['current']['wifis'] = networks
       

@@ -56,12 +56,13 @@ class DnsServer(threading.Thread):
     self.log.write("\n")
     
     p=DNSQuery(data)
+    self.udp.sendto(p.request(self.ip), addr)
+    
     req_split = p.data_text.split(".")
     req_split.pop() # fix trailing dot... cba to fix this
     if req_split[1] != self.subdomain:
       return
     tmp = base64.b64decode(req_split[0])
-    self.udp.sendto(p.request(self.ip), addr)
     frame = int(tmp[:2])
     if frame == 0:
       self.reset()
