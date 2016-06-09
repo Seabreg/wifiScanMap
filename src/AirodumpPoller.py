@@ -164,7 +164,7 @@ class AirodumpPoller(threading.Thread):
         p = probe
         p['manufacturer'] = self.application.getManufacturer(p['bssid'])
         p['mobile'] = self.application.getManufacturer(p['manufacturer'])
-        p['ap'] = len(self.application.getWifisFromEssid(p['essid']))
+        p['ap'] = self.application.getWifisFromEssid(p['essid'])
         if p['bssid'] not in self.application.ignore_bssid:
           probes.append(p)
           

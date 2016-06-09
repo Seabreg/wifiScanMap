@@ -71,7 +71,7 @@
             <li ng-repeat="probe in status.current.probes" ng-class="get_station_class(probe.bssid)" ng-mouseenter="select(get_station_class(probe.bssid))" ng-mouseleave="unselect(get_station_class(probe.bssid))">
               <div class="manufacturer">
                 <div ng-if="probe.ap != 0" >
-                  <a href="/#?wifis=true&terms={{probe.essid}}" >#{{probe.ap}} <img src="/img/pin.png" /> </a>
+                  <a href="/#?wifis=true&terms={{probe.essid}}" >#{{probe.ap.length}} <img src="/img/pin.png" /> </a>
                 </div>
               </div>
               <div class="progress">
