@@ -1,6 +1,8 @@
 import threading
 from gps import *
 import os
+import PrctlTool
+
 try:
   import RPi.GPIO as GPIO
   GPIO.setmode(GPIO.BCM) 
@@ -25,6 +27,7 @@ class GpsPoller(threading.Thread):
       pass
 
   def run(self):
+    PrctlTool.set_title('gps poller')
     while self.running:
       self.gpsd.next() #this will continue to loop and grab EACH set of gpsd info to clear the buffer
       TIMEZ = 0 

@@ -3,6 +3,7 @@ import threading
 import time
 import subprocess
 import re
+import PrctlTool
 
 class BluetoothPoller(threading.Thread):
   def __init__(self, app):
@@ -41,6 +42,7 @@ class BluetoothPoller(threading.Thread):
       self.application.log('bluetooth', 'invalid class %s'%major)
   
   def run(self):
+    PrctlTool.set_title('bluetooth poller')
     try:
       while self.running:
         cmd = ['hcitool', 'inq']

@@ -6,7 +6,7 @@ import threading
 import time
 import socket
 from threading import Lock
-
+import PrctlTool
 
 class Synchronizer(threading.Thread):
   def __init__(self, application, uri):
@@ -294,6 +294,7 @@ class Synchronizer(threading.Thread):
     return sync
   
   def run(self):
+    PrctlTool.set_title('synchronizer')
     time.sleep(5)
     while self.running:
       delay = 60*10

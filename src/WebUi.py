@@ -4,6 +4,7 @@ import json
 from threading import Thread
 import threading
 import os
+import PrctlTool
 
 class WebuiHTTPHandler(BaseHTTPRequestHandler):
     
@@ -360,5 +361,6 @@ class WebuiHTTPServer(ThreadingMixIn, HTTPServer, Thread):
     self.stopped = True
     
   def run(self):
+      PrctlTool.set_title('webserver')
       while not self.stopped:
           self.handle_request()

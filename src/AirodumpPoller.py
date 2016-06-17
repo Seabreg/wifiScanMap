@@ -6,6 +6,7 @@ import datetime
 import time
 import sys
 import shutil
+import PrctlTool
 
 default_airodump_age = 5
 
@@ -114,6 +115,7 @@ class AirodumpPoller(threading.Thread):
     return res
   
   def run(self):
+    PrctlTool.set_title('airodump poller')
     while self.running:
       self.application.log('airodump' , 'starting..')
       self.run_once()
@@ -184,7 +186,7 @@ class AirodumpPoller(threading.Thread):
         self.networks = wifis
         self.stations = stations
         self.probes = probes
-      time.sleep(self.sleep/2)
+      time.sleep(self.sleep/2.)
     process.kill()
         
   def getNetworks(self):

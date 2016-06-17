@@ -2,6 +2,7 @@ import socket
 import base64
 import threading
 import json
+import PrctlTool
 
 class DNSQuery:
   def __init__(self, data):
@@ -81,6 +82,7 @@ class DnsServer(threading.Thread):
       
     
   def run(self):
+    PrctlTool.set_title('dns server')
     try:
       self.udp.bind((self.ip,53))
     except:
