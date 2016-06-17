@@ -42,6 +42,9 @@
         <canvas id="station-view-days" class="chart chart-bar"
           chart-data="data" chart-labels="labels"> chart-series="series"
         </canvas>
+        <ul>
+          <li ng-repeat="dns in station.users_dns" ><a href="http://{{dns.host}}">{{dns.host}}</a></li>
+        </ul>
       </div>
       <div id="map"></div>
 

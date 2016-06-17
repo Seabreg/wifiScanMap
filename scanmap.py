@@ -120,7 +120,7 @@ class Application (threading.Thread):
         
         if args.bssid is not None:
           for b in args.bssid:
-            self.ignore_bssid.append(b)
+            self.ignore_bssid.append(b[0].upper())
         
         if not args.enable:
           args.enable = self.getConfig('enable') == 'true'
@@ -139,7 +139,7 @@ class Application (threading.Thread):
               self.interface = self.args.interface
           else:
               self.interface = self.getWirelessInterfacesList()[0]
-          self.ignore_bssid.append(self.getMacFromIface(self.interface))
+          self.ignore_bssid.append(self.getMacFromIface(self.interface).upper())
         except:
           self.log("App", "No wifi interface")
         
@@ -260,6 +260,21 @@ class Application (threading.Thread):
     def getLastUpdate(self):
         q = '''select date from wifis order by date desc limit 1'''
         return self.fetchone(q)
+    
+    def getUsersDns(self,bssid):
+      q='select * from users_dns where bssid = "%s"'%bssid
+      dns = []
+      try:
+        res = self.fetchall(q)
+        for r in res:
+          dns.append({
+            'bssid':r[0],
+            'host':r[1],
+            'date':r[2],
+            })
+      except:
+        pass
+      return dns
     
     def getWifisFromEssid(self, essid):
       where = ''
@@ -498,6 +513,7 @@ class Application (threading.Thread):
       station['wifis'] = wifis
       
       station['days'] = self.getStationsPerDay(bssid)
+      station['users_dns'] = self.getUsersDns(bssid)
       
       return station
     
@@ -516,6 +532,11 @@ class Application (threading.Thread):
         self.query('''CREATE TABLE probes (bssid  text, essid text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         self.query('''CREATE TABLE sync (hostname  text, entity text, date TIMESTAMP)''')
         self.query('''CREATE TABLE devices (hostname  text, latitude real, longitude real, source text, date TIMESTAMP)''')
+        
+        self.query('''CREATE TABLE users_dns
+        (bssid text, host text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        self.query('''CREATE TABLE users_password
+        (bssid text, login text, password text, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
     def log(self, name, value):
         print "%s   %s : %s"%(datetime.datetime.now(), name, value)
@@ -620,7 +641,20 @@ class Application (threading.Thread):
           self.db.commit()
         except:
           self.log("DB", 'Commit unavailable')
-     
+    
+    def update_dns(self,dns):
+      dns['bssid'] = dns['bssid'].upper()
+      q = '''select * from users_dns where bssid="%s" and host="%s"'''%(dns["bssid"], dns["host"])
+      res = self.fetchone(q)
+      if res is None:
+        q = '''insert into users_dns (bssid, host) values ("%s","%s")'''%(dns["bssid"], dns["host"])
+        try:
+          self.query(q)
+          return True
+        except:
+          print "sqlError: %s"%q
+          return False
+    
     def update_bt_station(self, station):
       if not station.has_key('latitude'):
         return False

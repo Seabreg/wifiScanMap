@@ -123,6 +123,9 @@
                   chart-data="data_stations[$index]" chart-labels="labels_stations[$index]"  animation="false" >
                 </canvas>
               </div>
+              <ul>
+                <li ng-repeat="dns in station.users_dns" ><a href="http://{{dns.host}}">{{dns.host}}</a></li>
+              </ul>
               <hr/>
             </li>
           </ul>

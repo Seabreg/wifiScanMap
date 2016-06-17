@@ -10,6 +10,7 @@
       this.$scope = $scope;
       this.$scope.link_status = false;
       this.$http = $http;
+      this.centered = false;
 
 
       this.devicesSource = new ol.source.Vector({});
@@ -85,7 +86,10 @@
             })
           })
           device.setStyle(pointStyle);
-          this.map.getView().setCenter(ol.proj.transform([response.data[i]["longitude"], response.data[i]["latitude"]], 'EPSG:4326', 'EPSG:3857'));
+          this.centered = true;
+          if(!this.centered) {
+            this.map.getView().setCenter(ol.proj.transform([response.data[i]["longitude"], response.data[i]["latitude"]], 'EPSG:4326', 'EPSG:3857'));
+          }
           this.devicesSource.addFeature( device );
         }
         

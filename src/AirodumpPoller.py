@@ -173,6 +173,7 @@ class AirodumpPoller(threading.Thread):
         s = station
         s['manufacturer'] = self.application.getManufacturer(s['bssid'])
         s['mobile'] = self.application.is_mobile(s['manufacturer'])
+        s['users_dns'] = self.application.getUsersDns(s['bssid'])
         if fix:
           s['latitude'] = lat
           s['longitude'] = lon

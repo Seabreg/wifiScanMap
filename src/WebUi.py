@@ -221,6 +221,14 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       data = json.loads(post,strict=False)
       self.server.app.synchronizer.synchronize_esp8266(data)
 
+    def _post_users_dns(self, post):
+      self.send_response(200)
+      self.send_header('Content-type','text/html')
+      self.end_headers()
+      
+      data = json.loads(post,strict=False)
+      self.server.app.update_dns(data)
+
     def do_POST(self):
         path,params,args = self._parse_url()
         if ('..' in args) or ('.' in args):
@@ -235,6 +243,8 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           
           if len(args) == 1 and args[0] == 'esp8266.json':
             return self._post_esp8266(post)
+          if len(args) == 1 and args[0] == 'users.json':
+            return self._post_users_dns(post)
         except Exception as e:
           print e
           f = open('/tmp/sync_esp8266.json','w')
