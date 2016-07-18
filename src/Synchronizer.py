@@ -211,8 +211,10 @@ class Synchronizer(threading.Thread):
         wifis = []
         for w in data["ap"]:
           wifis.append({'bssid': w['b'], 'essid': w['e']})
-        self.esp8266[hostname] = {'current':{}}
-        self.esp8266[hostname]['position'] = self.application.getWifiPosition(wifis)
+        self.esp8266[hostname]['current'] = {}
+        wifi_pos = self.application.getWifiPosition(wifis)
+        if wifi_pos is not None:
+          self.esp8266[hostname]['position'] = wifi_pos
       if self.esp8266.has_key(hostname):
         position = self.esp8266[hostname]['position']
       
@@ -224,25 +226,25 @@ class Synchronizer(threading.Thread):
 
       
       
-      #networks = []
-      #try:
-        #for n in data['ap']:
-          #network = {}
-          #network['bssid'] = n['b']
-          #network['essid'] = n['e']
-          #network['encryption'] = n['k']
-          #network['signal'] = int(n['s'])
-          #network['longitude'] = position[1]
-          #network['latitude'] = position[0]
-          #network['frequency'] = '""'
-          #network['channel'] = n['c']
-          #network['mode'] = 'Master'
-          #network['gps'] = False
-          #self.application.update(network)        
-          #self.update(hostname, 'ap' )
-          #networks.append(network);
-      #except:
-        #self.application.log('Sync esp8266',"ap update fail")
+      networks = []
+      try:
+        for n in data['ap']:
+          network = {}
+          network['bssid'] = n['b']
+          network['essid'] = n['e']
+          network['encryption'] = n['k']
+          network['signal'] = int(n['s'])
+          network['longitude'] = position[1]
+          network['latitude'] = position[0]
+          network['frequency'] = '""'
+          network['channel'] = n['c']
+          network['mode'] = 'Master'
+          network['gps'] = False
+          self.application.update(network)        
+          self.update(hostname, 'ap' )
+          networks.append(network);
+      except:
+        self.application.log('Sync esp8266',"ap update fail")
       
       self.esp8266[hostname]['current']['wifis'] = networks
       

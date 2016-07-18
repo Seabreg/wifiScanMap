@@ -55,6 +55,7 @@ def parse_args():
     parser.add_argument('-e', '--enable', action='store_true', help='enable db synchro through json')
     parser.add_argument('-m', '--monitor', action='store_true', help='use monitor mode instead of iwlist')
     parser.add_argument('-b', '--bssid', help='ignore bssid', action='append', nargs='*')
+    parser.add_argument('-c', '--esp', help='force esp position hostname0:lat:lon,hostname1:lat,lon,')
     return parser.parse_args()
 
       
@@ -130,6 +131,10 @@ class Application (threading.Thread):
             args.synchro = self.getConfig('synchro')
         
         self.synchronizer = Synchronizer(self, args.synchro)
+        for esp in self.args.esp.split(','):
+          hostname, lat, lon = esp.split(':')
+          self.synchronizer.esp8266[hostname] = {}
+          self.synchronizer.esp8266[hostname]['position']=(float(lat),float(lon),0)
         
         if args.synchro is not None:
           self.synchronizer.start()

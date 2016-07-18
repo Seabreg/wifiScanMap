@@ -249,7 +249,7 @@
               if(wifis[i]["encryption"] == 0) {
                 encryption = "open";
               }
-              html += '<li class="'+encryption+'" >'+ wifis[i]["essid"] + ' ' + wifis[i]["bssid"] +' <a class="fa fa-minus-circle" href="#"  onclick="delete(\"'+wifis[i]["bssid"]+'\",\"'+wifis[i]["essid"]+'\")" ></a><hr/></li>';
+              html += '<li class="'+encryption+'" >'+ wifis[i]["essid"] + ' ' + wifis[i]["bssid"] +' <a class="fa fa-minus-circle" href="#"  onclick="delete(\''+wifis[i]["bssid"]+'\',\''+wifis[i]["essid"]+'\')" ></a><hr/></li>';
             }
           } else {
             if ('station' in feature.getProperties()) {
