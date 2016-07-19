@@ -268,6 +268,8 @@ class Synchronizer(threading.Thread):
           station = {}
           station['bssid'] = s['b']
           station['signal'] = int(s['s'])
+          station['longitude'] = position[1]
+          station['latitude'] = position[0]
           self.application.update_station(station)
           stations.append(station)
           self.update(hostname, 'stations')
