@@ -72,7 +72,7 @@ class Synchronizer(threading.Thread):
   def synchronize_ap(self, date = None):
     if date is None:
       date = '1980-01-01 00:00:00'
-    res = self.application.getAll(date)['networks']
+    res = self.application.getAll(None, None,date)['networks']
     data = {
       'hostname': self.hostname,
       'ap':res,

@@ -66,6 +66,7 @@
         })
       });
       
+      
       var pointStyle = new ol.style.Style({
         image: new ol.style.Circle({
           fill: new ol.style.Fill({
@@ -112,6 +113,11 @@
       
       self = this
       
+      $scope.delete = function(bssid, essid) {
+        console.log("====");
+        console.log(bssid);
+      }
+      
       $scope.center = function() {
         var latitude;
         var longitude;
@@ -130,6 +136,10 @@
           self.map.getView().setCenter(ol.proj.transform([longitude, latitude ], 'EPSG:4326', 'EPSG:3857'));
         }
       };
+      
+      var box = this.map.getView().calculateExtent(this.map.getSize());
+      this.bottom_right = ol.proj.transform([box[0], box[1]], 'EPSG:3857', 'EPSG:4326');
+      this.upper_left = ol.proj.transform([box[2], box[3]], 'EPSG:3857', 'EPSG:4326');
       
       $scope.changeHost = function() {
         self.host = self.$scope.map.host;
@@ -249,7 +259,7 @@
               if(wifis[i]["encryption"] == 0) {
                 encryption = "open";
               }
-              html += '<li class="'+encryption+'" >'+ wifis[i]["essid"] + ' ' + wifis[i]["bssid"] +' <a class="fa fa-minus-circle" href="#"  onclick="delete(\''+wifis[i]["bssid"]+'\',\''+wifis[i]["essid"]+'\')" ></a><hr/></li>';
+              html += '<li class="'+encryption+'" >'+ wifis[i]["essid"] + ' ' + wifis[i]["bssid"] +' <a class="fa fa-minus-circle" href="/delete.json?bssid='+wifis[i]["bssid"]+'&essid='+wifis[i]["essid"]+'" >delete</a><hr/></li>';
             }
           } else {
             if ('station' in feature.getProperties()) {
@@ -260,7 +270,7 @@
                 name = station["name"]
                 logo = '<div class="device-type '+station["class_description"]+'" ></div>';
               }
-              html += "<li>"+ station["date"] + '<br/>' + logo + name + ' ' +station["manufacturer"] +"</li>";
+              html += "<li>"+ station["date"] + '<br/> <a href=/station.html#?bssid=' + station["bssid"] + ">" + station["bssid"] +'</a><br/>' + logo + name + ' ' +station["manufacturer"] +"</li>";
             }
           }
           
@@ -273,6 +283,8 @@
       });
       
       this.changeHost();
+      this.move_timer = false;
+      this.map.on('moveend', this.map_moveend, this)
     }
     
     update_status() {
@@ -307,7 +319,8 @@
     update_stations() {
       $("#loading-container").show();
       this.stationsSource.clear();
-      this.$http.get(this.host + '/stations.json').then(response => {
+      
+      this.$http.get(this.host+'/stations.json?search=latitude > '+this.bottom_right[1]+' and longitude > '+this.bottom_right[0]+' and latitude < '+this.upper_left[1]+' and longitude < '+this.upper_left[0]).then(response => {
         this.colors = {};
         
         for(var i in response.data) {
@@ -397,7 +410,7 @@
       var lastLon = -1;
       var info = []
       this.wifisSource.clear();
-      this.$http.get(this.host+'/wifis.json').then(response => {
+      this.$http.get(this.host+'/wifis.json?lat='+this.bottom_right[1]+'&lon='+this.bottom_right[0]+'&lat1='+this.upper_left[1]+'&lon1='+this.upper_left[0]).then(response => {
         for(var w in response.data) {
           if(response.data[w]['latitude'] != lastLat || response.data[w]['longitude'] != lastLon ) {
             if(info.length > 0) {
@@ -477,6 +490,27 @@
       this.$scope.update_stations();
       this.$scope.update_bt_stations();
       this.update_status();
+    }
+    
+    map_reload() {
+      this.$scope.update_wifis();
+      this.$scope.update_stations();
+      this.$scope.update_bt_stations();
+    }
+    
+    map_moveend() {
+      
+      var box = this.map.getView().calculateExtent(this.map.getSize());
+      this.bottom_right = ol.proj.transform([box[0], box[1]], 'EPSG:3857', 'EPSG:4326');
+      this.upper_left = ol.proj.transform([box[2], box[3]], 'EPSG:3857', 'EPSG:4326');
+            
+      if(this.move_timer != false)
+      {
+        clearTimeout(this.move_timer);
+      }
+      this.move_timer = setTimeout(this.map_reload.bind( self ),3000);
+      
+      
     }
     
   }

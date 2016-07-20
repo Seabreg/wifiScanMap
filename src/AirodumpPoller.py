@@ -130,7 +130,7 @@ class AirodumpPoller(threading.Thread):
     prefix= '/tmp/wifi-dump'
     os.system("rm %s*"%prefix)
     cmd = ['airodump-ng', '-w', prefix,  '--berlin', str(self.sleep), self.application.interface]
-    process = subprocess.Popen(cmd, stderr=FNULL)
+    process = subprocess.Popen(cmd, stdout=FNULL, stdin=FNULL, stderr=FNULL)
     f = open("/var/run/wifimap-airodump", 'w')
     f.write('%s'%process.pid)
     f.close()

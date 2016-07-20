@@ -410,13 +410,18 @@ class Application (threading.Thread):
         q = 'select P.essid, count(*) as probes_count, (select count(*) from wifis W where W.essid = P.essid) as wifis_count from probes P %s %s group by P.essid order by probes_count desc, wifis_count desc'%(essid_where, date_where)
         return self.fetchall(q)
     
-    def getAll(self, date = None):
+    def getAll(self,p0 =None, p1=None,  date = None):
         wifis = {}
+        where = ''
         date_where = ''
         if date is not None:
-          date_where = 'where date > "%s"'%date
-        q = 'select * from wifis %s order by latitude, longitude'%date_where
-        
+          where = 'where'
+          date_where = 'date > "%s"'%date
+        if p0 is not None:
+          where = 'where'
+          location_where = 'latitude > %s and longitude > %s and latitude < %s and longitude < %s'%(p0[0], p0[1], p1[0], p1[1])
+          
+        q = 'select * from wifis %s %s %s order by latitude, longitude'%(where, location_where, date_where)
         # should create an object replace('\\','')
         wifis["networks"] = self.fetchall(q)
         
@@ -556,6 +561,8 @@ class Application (threading.Thread):
         self.httpd.join()
         self.airodump.stop()
         self.airodump.join()
+        self.bluePoller.stop()
+        self.bluePoller.join()
     
     def has_fix(self, accurate = True):
       return self.gpspoller.has_fix(accurate)
@@ -671,8 +678,11 @@ class Application (threading.Thread):
         return True
       return False
     
-    def delete(self, bssid):
-      q = 'delete from wifis where bssid = "%s"'%bssid
+    def delete(self, bssid, essid = None):
+      if essid is not None:
+        q = 'delete from wifis where bssid = "%s" and essid == "%s"'%(bssid,essid)
+      else:
+        q = 'delete from wifis where bssid = "%s"'%bssid
       self.query(q)
       q = 'delete from stations where bssid = "%s"'%bssid
       self.query(q)
@@ -845,6 +855,21 @@ class Application (threading.Thread):
       q = "select -signal*latitude/-signal, -signal*longitude/-signal from wifis where %s order by latitude asc, longitude asc"%(' or '.join(where))
       res = self.fetchall(q)
       if res is not None:
+        q = "select * from wifis where %s"%(' or '.join(where))
+        used_wifis = []
+        for n in self.fetchall(q):
+          network = {}
+          network['bssid'] = n[0]
+          network['essid'] = n[1]
+          network['encryption'] = n[2]
+          network['signal'] = n[3]
+          network['longitude'] = n[4]
+          network['latitude'] = n[5]
+          network['frequency'] = n[6]
+          network['channel'] = n[7]
+          network['mode'] = n[8]
+          network['date'] = n[9]
+          used_wifis.append(network)
         #compute median
         q2_index = int(len(res)/2)
         q1_index = int(q2_index/2)
@@ -860,7 +885,7 @@ class Application (threading.Thread):
         if res is not None:
           if res[0] is None:
             return None
-          return (res[0], res[1], self.haversine(inferior_limits[0], inferior_limits[1], exterior_limits[0], exterior_limits[1]))
+          return (res[0], res[1], self.haversine(inferior_limits[0], inferior_limits[1], exterior_limits[0], exterior_limits[1]), used_wifis)
         return None
            
     def getPosition(self):

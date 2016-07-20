@@ -5,6 +5,8 @@ from threading import Thread
 import threading
 import os
 import PrctlTool
+import re
+import urllib
 
 class WebuiHTTPHandler(BaseHTTPRequestHandler):
     
@@ -51,7 +53,6 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           status['position']['gps']['longitude'] = self.server.app.session.fix.longitude
           status['position']['gps']['accuracy'] = self.server.app.gpspoller.getPrecision()
       
-      wifiPos = self.server.app.wifiPosition
       if wifiPos is not None:
         status['position']['wifi']['latitude'] = wifiPos[0]
         status['position']['wifi']['longitude'] = wifiPos[1]
@@ -103,12 +104,12 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       except:
         self.send_response(500)
     
-    def _get_wifis(self):
+    def _get_wifis(self, p0 = None, p1 = None):
       self.send_response(200)
       self.send_header('Content-type','application/json')
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
-      networks = self.server.app.getAll()
+      networks = self.server.app.getAll(p0, p1)
       data = []
       for n in networks["networks"]:
         d = {}
@@ -285,13 +286,29 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
       sync = self.server.app.synchronizer.get_sync(hostname)
       self.wfile.write(json.dumps(sync, ensure_ascii=False))
       
-    def _get_delete(self, bssid):
+    def _get_delete(self, bssid,essid):
       self.send_response(200)
       self.send_header('Content-type','application/json')
       self.send_header('Access-Control-Allow-Origin','*')
       self.end_headers()
-      delete = self.server.app.delete(bssid)
+      delete = self.server.app.delete(bssid,essid)
       self.wfile.write(json.dumps(delete, ensure_ascii=False))
+    
+    def _get_position(self):
+      self.send_response(200)
+      self.send_header('Content-type','application/json')
+      self.send_header('Access-Control-Allow-Origin','*')
+      self.end_headers()
+      
+      data = {}
+      wifiPos = self.server.app.wifiPosition
+      if wifiPos is not None:
+        data['latitude'] = wifiPos[0]
+        data['longitude'] = wifiPos[1]
+        data['accuracy'] = wifiPos[2]
+        data['used_wifis'] = wifiPos[3]
+      
+      self.wfile.write(json.dumps(data, ensure_ascii=False))
     
     def do_GET(self):
         path,params,args = self._parse_url()
@@ -313,12 +330,23 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
         elif len(args) == 1 and args[0] == 'csv':
             return self._get_csv()
         elif len(args) == 1 and args[0] == 'wifis.json':
-            return self._get_wifis()
+            p0 = None
+            p1 = None
+            if params is not None:
+              m = re.match(
+              r"lat=(.*)\&lon=(.*)\&lat1=(.*)\&lon1=(.*)",params)
+            if m is not None:
+              lat, lon, lat1, lon1 = m.groups()
+              p0 = (lat,lon)
+              p1 = (lat1,lon1)
+            return self._get_wifis(p0, p1)
         elif len(args) == 1 and args[0] == 'synchronize.json':
             return self._get_synchronize()
+        elif len(args) == 1 and args[0] == 'position.json':
+            return self._get_position()
         elif len(args) == 1 and args[0] == 'stations.json':
             if params is not None:
-              params = params.split('search=')[1]
+              params = urllib.unquote(params.split('search=')[1])
             return self._get_stations(params)
         elif len(args) == 1 and args[0] == 'bt_stations.json':
             if params is not None:
@@ -342,8 +370,15 @@ class WebuiHTTPHandler(BaseHTTPRequestHandler):
           return self._get_sync(params)
         elif len(args) == 1 and args[0] == 'delete.json':
           if params is not None:
-              params = params.split('bssid=')[1]
-          return self._get_delete(params)
+            m = re.match(
+              r"bssid=(.*)\&essid=(.*)",params)
+            if m is not None:
+              bssid,essid = m.groups()
+              essid = urllib.unquote(essid)
+            else:
+              bssid = params.split('bssid=')[1]
+              essid = None
+            return self._get_delete(bssid, essid)
         else:
             return self._get_file(path)
       
