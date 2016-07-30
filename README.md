@@ -13,6 +13,8 @@ It was tested on recent debian / ubuntu and a flying raspberry 1
 ## Esp8266
 An esp8266 version is available here [esp8266-wifiScanMap](https://github.com/mehdilauters/esp8266-wifiScanMap)
 
+![WifiScanMap](https://github.com/mehdilauters/esp8266-wifiScanMap/raw/master/doc/blackbox_open.png)
+
 
 ## installation
 - bower install
