@@ -4,30 +4,9 @@ import threading
 import json
 import PrctlTool
 
-class DNSQuery:
-  def __init__(self, data):
-    self.data = data
-    self.data_text = ''
-
-    tipo = (ord(data[2]) >> 3) & 15   # Opcode bits
-    if tipo == 0:                     # Standard query
-      ini=12
-      lon=ord(data[ini])
-    while lon != 0:
-      self.data_text += data[ini+1:ini+lon+1]+'.'
-      ini += lon+1
-      lon=ord(data[ini])
-
-  def request(self, ip):
-    packet=''
-    if self.data_text:
-      packet+=self.data[:2] + "\x81\x80"
-      packet+=self.data[4:6] + self.data[4:6] + '\x00\x00\x00\x00'   # Questions and Answers Counts
-      packet+=self.data[12:]                                         # Original Domain Name Question
-      packet+='\xc0\x0c'                                             # Pointer to domain name
-      packet+='\x00\x01\x00\x01\x00\x00\x00\x3c\x00\x04'             # Response type, ttl and resource data length -> 4 bytes
-      packet+=str.join('',map(lambda x: chr(int(x)), ip.split('.'))) # 4bytes of IP
-    return packet
+## needs scapy 2.3.2
+from scapy.all import DNS, DNSQR, DNSRR, dnsqtypes
+import scapy.all
 
 
 class DnsServer(threading.Thread):
@@ -44,7 +23,7 @@ class DnsServer(threading.Thread):
     
   def reset(self):
     if self.r_data != '':
-      w = open('/tmp/json','w')
+      w = open('/tmp/dns_json','w')
       w.write(self.r_data)
       w.close()
     
@@ -53,16 +32,36 @@ class DnsServer(threading.Thread):
     
   def run_once(self):
     data, addr = self.udp.recvfrom(1024)
+    #print "dns query from %s"%addr[0]
     self.log.write(data)
     self.log.write("\n")
     
-    p=DNSQuery(data)
-    self.udp.sendto(p.request(self.ip), addr)
     
-    req_split = p.data_text.split(".")
-    req_split.pop() # fix trailing dot... cba to fix this
-    if req_split[1] != self.subdomain:
+    dns = DNS(data)
+    assert dns.opcode == 0, dns.opcode  # QUERY
+    if dnsqtypes[dns[DNSQR].qtype] != 'A':
       return
+    dns.show()
+    query = dns[DNSQR].qname.decode('ascii')  # test.1.2.3.4.example.com.
+    req_split = query.rsplit('.')
+    
+    print req_split
+
+
+    if req_split[1] != self.subdomain:
+      self.application.log('Dns' , 'Wrong subdomain (%s != %s)'%(req_split[1], self.subdomain))
+      return
+    
+    response = DNS(
+        id=dns.id, ancount=1, qr=1,
+        qd=dns.qd,
+        an=DNSRR(rrname=str(query), type='A', rdata=str(self.ip), ttl=1234),
+        ar=scapy.layers.dns.DNSRROPT(rclass=3000))
+    
+    self.udp.sendto(bytes(response), addr)
+
+    
+    
     tmp = base64.b64decode(req_split[0])
     frame = int(tmp[:2])
     if frame == 0:
@@ -90,7 +89,7 @@ class DnsServer(threading.Thread):
       return
     self.application.log('Dns' , 'starting..')
     while self.running:
-      try:
+      try: 
         self.run_once()
       except Exception as e:
         self.application.log('Dns' , 'Exception %s..'%e)
