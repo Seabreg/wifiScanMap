@@ -39,17 +39,15 @@
       this.map.getViewport().addEventListener('click', function (e) {
         e.preventDefault();
         
-        
+        var html = "";
         var feature = self.map.forEachFeatureAtPixel(self.map.getEventPixel(e),
                                                      function (feature, layer) {
-                                                       return feature;
+                                                       var device = feature.getProperties().device;
+                                                       html += device['hostname'] + '<br/>';
+                                                       html += device['date'] + '<br/>';
+                                                       html += device['source'] + '<hr/>';
                                                      });
-        if (feature) {
-          var html = "";
-          var device = feature.getProperties().device;
-          html += device['hostname'] + '<br/>';
-          html += device['date'] + '<br/>';
-          html += device['source'] + '<br/>';
+        if (html != "") {
           $("#left-pannel").html(html);
           $("#left-pannel").show();
         } else {

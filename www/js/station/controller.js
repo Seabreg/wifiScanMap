@@ -131,33 +131,34 @@
       this.map.getViewport().addEventListener('click', function (e) {
         e.preventDefault();
         
-        
+        var stations = "";
+        var wifis = "";
         var feature = self.map.forEachFeatureAtPixel(self.map.getEventPixel(e),
-                                                     function (feature, layer) {
-                                                       return feature;
-                                                     });
-        if (feature) {
-          console.log(feature.getProperties());
-          var html = "";
-          if ('wifi' in feature.getProperties()) {
-            var wifi = feature.getProperties().wifi;
-            var encryption = "secure";
-            if(wifi["encryption"] == 0) {
-              encryption = "open";
-            }
-              html += "<li class="+encryption+" >"+ wifi["essid"] +"</li>";
-          } else {
-            if ('trace' in feature.getProperties()) {
-              var trace = feature.getProperties().trace;
-              name = ''
-              if(trace["name"] != undefined) {
-                name = trace["name"]
+            function (feature, layer) {
+              if ('wifi' in feature.getProperties()) {
+                var wifi = feature.getProperties().wifi;
+                var encryption = "secure";
+                if(wifi["encryption"] == 0) {
+                  encryption = "open";
+                }
+                wifis += "<li class="+encryption+" >"+ wifi["essid"] + "<br/>" + wifi["bssid"] +"<hr/></li>";
+              } else {
+                if ('trace' in feature.getProperties()) {
+                  var trace = feature.getProperties().trace;
+                  var name = '';
+                  if(trace["name"] != undefined) {
+                    name = trace["name"];
+                  }
+                  var manufacturer = '';
+                  if(trace["manufacturer"] != undefined) {
+                    manufacturer = trace["manufacturer"]
+                  }
+                  stations += "<li>"+ trace["bssid"] + "<br/>" + trace["date"] + '<br/>' + name + ' ' + manufacturer +"<hr/></li>";
+                }
               }
-              html += "<li>"+ trace["date"] + '<br/>' + name + ' ' +feature.getProperties().manufacturer +"</li>";
-            }
-          }
-          
-         
+            });
+        if (wifis != "" || stations != "") {
+          var html = "<ul>"+wifis+"</ul><ul>"+stations+"</ul>";
          $("#left-pannel").html(html);
           $("#left-pannel").show();
         } else {

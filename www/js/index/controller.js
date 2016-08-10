@@ -246,35 +246,32 @@
         e.preventDefault();
         
         
+        var html = "";
         var feature = self.map.forEachFeatureAtPixel(self.map.getEventPixel(e),
-                                                     function (feature, layer) {
-                                                       return feature;
-                                                     });
-        if (feature) {
-          var html = "";
-          if ('wifis' in feature.getProperties()) {
-            var wifis = feature.getProperties().wifis;
-            for(var i in wifis) {
-              var encryption = "secure";
-              if(wifis[i]["encryption"] == 0) {
-                encryption = "open";
+            function (feature, layer) {
+              if ('wifis' in feature.getProperties()) {
+                var wifis = feature.getProperties().wifis;
+                for(var i in wifis) {
+                  var encryption = "secure";
+                  if(wifis[i]["encryption"] == 0) {
+                    encryption = "open";
+                  }
+                  html += '<li class="'+encryption+'" >'+ wifis[i]["essid"] + ' ' + wifis[i]["bssid"] +' <a class="fa fa-minus-circle" href="/delete.json?bssid='+wifis[i]["bssid"]+'&essid='+wifis[i]["essid"]+'" >delete</a><hr/></li>';
+                }
+              } else {
+                if ('station' in feature.getProperties()) {
+                  var station = feature.getProperties().station;
+                  var name = ''
+                  var logo = ''
+                  if(station["name"] != undefined) {
+                    name = station["name"]
+                    logo = '<div class="device-type '+station["class_description"]+'" ></div>';
+                  }
+                  html += "<li>"+ station["date"] + '<br/> <a href=/station.html#?bssid=' + station["bssid"] + ">" + station["bssid"] +'</a><br/>' + logo + name + ' ' +station["manufacturer"] +"</li>";
+                }
               }
-              html += '<li class="'+encryption+'" >'+ wifis[i]["essid"] + ' ' + wifis[i]["bssid"] +' <a class="fa fa-minus-circle" href="/delete.json?bssid='+wifis[i]["bssid"]+'&essid='+wifis[i]["essid"]+'" >delete</a><hr/></li>';
-            }
-          } else {
-            if ('station' in feature.getProperties()) {
-              var station = feature.getProperties().station;
-              var name = ''
-              var logo = ''
-              if(station["name"] != undefined) {
-                name = station["name"]
-                logo = '<div class="device-type '+station["class_description"]+'" ></div>';
-              }
-              html += "<li>"+ station["date"] + '<br/> <a href=/station.html#?bssid=' + station["bssid"] + ">" + station["bssid"] +'</a><br/>' + logo + name + ' ' +station["manufacturer"] +"</li>";
-            }
-          }
-          
-         
+            });
+        if (html != "") {
           $("#wifis-list").html(html);
           $("#left-pannel").show();
         } else {

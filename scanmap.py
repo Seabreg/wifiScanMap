@@ -13,7 +13,7 @@ import argparse
 import re
 import sqlite3
 from threading import Thread
-from math import radians, cos, sin, asin, sqrt
+from math import radians, cos, sin, asin, sqrt, floor
 
 import datetime
 
@@ -873,7 +873,7 @@ class Application (threading.Thread):
         #compute median
         q2_index = int(len(res)/2)
         q1_index = int(q2_index/2)
-        q3_index = int(q2_index + q2_index/2)
+        q3_index = floor(q2_index + q2_index/2)
         
         #intercatile
         intercatile = (res[q3_index][0], res[q3_index][1])
