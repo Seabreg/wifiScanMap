@@ -63,7 +63,15 @@ class DnsServer(threading.Thread):
     #self.application.log('Dns' , 'request from %s : %s'%(addr[0], query))
     
     tmp = base64.b64decode(req_split[0])
-    frame = int(tmp[:2])
+    #check if sender's id is present
+    sender_id = -1
+    data_start = tmp.find('{')
+    if data_start == 2:
+      sender_id = tmp[:4]
+      frame = int(tmp[4:6])
+    else:
+      frame = int(tmp[:2])
+    
     if frame == 0:
       self.reset()
     # frame may be < self.frame_id as several dns server make request at the same time
@@ -77,7 +85,7 @@ class DnsServer(threading.Thread):
     
     self.answer(addr, dns, DnsServer.IP_OK)
     self.frame_id += 1
-    self.r_data += tmp[2:]
+    self.r_data += tmp[data_start:]
     print "========"
     print self.r_data
     try:
