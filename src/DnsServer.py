@@ -10,6 +10,9 @@ import scapy.all
 
 
 class DnsServer(threading.Thread):
+  IP_OK = '0.0.0.0'
+  IP_ERROR = '1.1.1.1'
+  
   def __init__(self, app):
     threading.Thread.__init__(self)
     self.application = app
@@ -29,7 +32,16 @@ class DnsServer(threading.Thread):
     
     self.r_data = ''
     self.frame_id=0
-    
+  
+  def answer(self, addr, dns, ip):
+    query = dns[DNSQR].qname.decode('ascii')
+    response = DNS(
+    id=dns.id, ancount=1, qr=1,
+    qd=dns.qd,
+    an=DNSRR(rrname=str(query), type='A', rdata=str(ip), ttl=1234),
+    ar=scapy.layers.dns.DNSRROPT(rclass=3000))
+    self.udp.sendto(bytes(response), addr)
+  
   def run_once(self):
     data, addr = self.udp.recvfrom(1024)
     #print "dns query from %s"%addr[0]
@@ -41,42 +53,39 @@ class DnsServer(threading.Thread):
     assert dns.opcode == 0, dns.opcode  # QUERY
     if dnsqtypes[dns[DNSQR].qtype] != 'A':
       return
-    dns.show()
+    #dns.show()
     query = dns[DNSQR].qname.decode('ascii')  # test.1.2.3.4.example.com.
     req_split = query.rsplit('.')
-    
-    print req_split
-
 
     if req_split[1] != self.subdomain:
       self.application.log('Dns' , 'Wrong subdomain (%s != %s)'%(req_split[1], self.subdomain))
       return
-    
-    response = DNS(
-        id=dns.id, ancount=1, qr=1,
-        qd=dns.qd,
-        an=DNSRR(rrname=str(query), type='A', rdata=str(self.ip), ttl=1234),
-        ar=scapy.layers.dns.DNSRROPT(rclass=3000))
-    
-    self.udp.sendto(bytes(response), addr)
-
-    
+    #self.application.log('Dns' , 'request from %s : %s'%(addr[0], query))
     
     tmp = base64.b64decode(req_split[0])
     frame = int(tmp[:2])
     if frame == 0:
       self.reset()
-    if frame != self.frame_id:
-      self.application.log('Dns' , 'should receive %d but received %d'%(self.frame_id, frame))
+    # frame may be < self.frame_id as several dns server make request at the same time
+    if frame > self.frame_id:
+      self.application.log('Dns' , 'should receive %d but received %d from %s'%(self.frame_id, frame, addr[0]))
+      self.answer(addr, dns, DnsServer.IP_ERROR)
       return
+    if frame < self.frame_id:
+      #already received frame
+      return
+    
+    self.answer(addr, dns, DnsServer.IP_OK)
     self.frame_id += 1
     self.r_data += tmp[2:]
+    print "========"
+    print self.r_data
     try:
       d = self.r_data.strip()
       j = json.loads(d)
       self.application.log("Dns %s"%j['n'], "%d ap, %d probes, %d stations"%(len(j['ap']), len(j['p']), len(j['s'])))
       self.application.synchronizer.synchronize_esp8266(j)
-    except Exception as e:
+    except ValueError as e:
       pass
       
     
@@ -89,7 +98,7 @@ class DnsServer(threading.Thread):
       return
     self.application.log('Dns' , 'starting..')
     while self.running:
-      try: 
-        self.run_once()
-      except Exception as e:
-        self.application.log('Dns' , 'Exception %s..'%e)
+      #try: 
+      self.run_once()
+      #except Exception as e:
+        #self.application.log('Dns' , 'Exception %s..'%e)

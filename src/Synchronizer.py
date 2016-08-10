@@ -211,11 +211,15 @@ class Synchronizer(threading.Thread):
         wifis = []
         for w in data["ap"]:
           wifis.append({'bssid': w['b'], 'essid': w['e']})
+        if not self.esp8266.has_key(hostname):
+          self.esp8266[hostname] = {}
         self.esp8266[hostname]['current'] = {}
         wifi_pos = self.application.getWifiPosition(wifis)
         if wifi_pos is not None:
+          self.application.log('Sync esp8266',"Position from wifis %s,%s"%(wifi_pos[0], wifi_pos[1]))
+        if wifi_pos is not None:
           self.esp8266[hostname]['position'] = wifi_pos
-      if self.esp8266.has_key(hostname):
+      if self.esp8266[hostname].has_key('position'):
         position = self.esp8266[hostname]['position']
       
       if position is None:
