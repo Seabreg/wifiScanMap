@@ -357,7 +357,7 @@ class Application (threading.Thread):
 
     def getDevices(self):
       devices = []      
-      q = 'select * from devices'
+      q = 'select * from devices group by hostname order by date desc'
       res = self.fetchall(q)
       if res is not None:
         for d in res:
@@ -873,8 +873,7 @@ class Application (threading.Thread):
         #compute median
         q2_index = int(len(res)/2)
         q1_index = int(q2_index/2)
-        q3_index = floor(q2_index + q2_index/2)
-        
+        q3_index = int(floor(q2_index + q2_index/2))
         #intercatile
         intercatile = (res[q3_index][0], res[q3_index][1])
         inferior_limits = (res[q3_index][0] + intercatile[0]*1.5, res[q3_index][1] + intercatile[1]*1.5)

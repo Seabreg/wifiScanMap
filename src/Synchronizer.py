@@ -36,7 +36,7 @@ class Synchronizer(threading.Thread):
     self.application.commit()
 
   def update_position(self, hostname, position):
-    q = '''select * from devices where hostname="%s"'''%hostname
+    q = '''select * from devices where hostname="%s" and latitude=%s and longitude=%s'''%(hostname,position['latitude'], position['longitude'])
     res = self.application.fetchone(q)
     if res is not None:
       q = '''update devices set date = %s, latitude=%s, longitude=%s, source="%s" where hostname="%s" '''%('CURRENT_TIMESTAMP', position['latitude'], position['longitude'], position['source'], hostname)
