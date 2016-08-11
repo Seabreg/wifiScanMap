@@ -267,7 +267,7 @@
                     name = station["name"]
                     logo = '<div class="device-type '+station["class_description"]+'" ></div>';
                   }
-                  html += "<li>"+ station["date"] + '<br/> <a href=/station.html#?bssid=' + station["bssid"] + ">" + station["bssid"] +'</a><br/>' + logo + name + ' ' +station["manufacturer"] +"</li>";
+                  html += "<li>"+ station["date"] + '<br/> <a href=/station.html#?bssid=' + station["bssid"] + ">" + station["bssid"] +'</a><br/>' + logo + name + ' ' +station["manufacturer"] +"<hr/></li>";
                 }
               }
             });
