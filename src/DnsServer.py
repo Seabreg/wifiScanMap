@@ -17,21 +17,27 @@ class DnsServer(threading.Thread):
     threading.Thread.__init__(self)
     self.application = app
     self.running = True #setting the thread running to true
-    self.r_data = ''
-    self.frame_id = 0
+    self.r_data = {}
+    self.frame_id = {}
     self.ip = '0.0.0.0'
     self.subdomain = 't1'
     self.log = open('/tmp/dns_raw.log','w')
     self.udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     
-  def reset(self):
-    if self.r_data != '':
-      w = open('/tmp/dns_json','w')
-      w.write(self.r_data)
+  def reset(self, _id):
+    print "reset %s"%_id
+    if not self.r_data.has_key(_id):
+      self.r_data[_id] = {}
+      
+    if self.r_data[_id] != '':
+      w = open('/tmp/dns_json_%s'%str(_id),'w')
+      d = ''
+      for k,v in self.r_data[_id].iteritems():
+        d += v
+      w.write(d)
       w.close()
-    
-    self.r_data = ''
-    self.frame_id=0
+    self.r_data[_id] = {}
+    self.frame_id[_id]=0
   
   def answer(self, addr, dns, ip):
     query = dns[DNSQR].qname.decode('ascii')
@@ -65,31 +71,40 @@ class DnsServer(threading.Thread):
     tmp = base64.b64decode(req_split[0])
     #check if sender's id is present
     sender_id = -1
-    data_start = tmp.find('{')
-    if data_start == 2:
-      sender_id = tmp[:4]
-      frame = int(tmp[4:6])
-    else:
-      frame = int(tmp[:2])
-    
-    if frame == 0:
-      self.reset()
-    # frame may be < self.frame_id as several dns server make request at the same time
-    if frame > self.frame_id:
-      self.application.log('Dns' , 'should receive %d but received %d from %s'%(self.frame_id, frame, addr[0]))
-      self.answer(addr, dns, DnsServer.IP_ERROR)
-      return
-    if frame < self.frame_id:
-      #already received frame
-      return
-    
-    self.answer(addr, dns, DnsServer.IP_OK)
-    self.frame_id += 1
-    self.r_data += tmp[data_start:]
-    print "========"
-    print self.r_data
+
     try:
-      d = self.r_data.strip()
+      data_start = 14
+      sender_id = int(tmp[:8])
+      frame = int(tmp[8:10])
+      rand = int(tmp[10:14])
+    except:
+      data_start = 2
+      frame = int(tmp[:2])
+      return # old protocol
+      
+    if frame == 0:
+      self.reset(sender_id)
+    
+    if not self.frame_id.has_key(sender_id):
+      self.frame_id[sender_id] = 0
+      
+    if not self.r_data.has_key(sender_id):
+      self.r_data[sender_id] = {}
+      
+    self.answer(addr, dns, DnsServer.IP_OK)
+    print " received frame %s for %s"%(frame, sender_id)
+    if self.r_data[sender_id].has_key(frame):
+      print "   frame %s already received"%frame
+      return
+
+    
+    self.frame_id[sender_id] += 1
+      
+    self.r_data[sender_id][frame] = tmp[data_start:]
+    try:
+      d = ''
+      for k,v in self.r_data[sender_id].iteritems():
+        d += v
       j = json.loads(d)
       self.application.log("Dns %s"%j['n'], "%d ap, %d probes, %d stations"%(len(j['ap']), len(j['p']), len(j['s'])))
       self.application.synchronizer.synchronize_esp8266(j)
@@ -106,7 +121,7 @@ class DnsServer(threading.Thread):
       return
     self.application.log('Dns' , 'starting..')
     while self.running:
-      #try: 
-      self.run_once()
-      #except Exception as e:
-        #self.application.log('Dns' , 'Exception %s..'%e)
+      try: 
+        self.run_once()
+      except Exception as e:
+        self.application.log('Dns' , 'Exception %s..'%e)
