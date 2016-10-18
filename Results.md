@@ -2,6 +2,10 @@
 
 ## Wifi Dataset properties
 
+- collected informations
+    - wifi access points with position, encryption, bssid and date ( box, public access points... )
+    - wifi stations with positions, bssid and date ( ie phones, embedded devices, computers... )
+    - probes requests with bssid and date ( request from devices for a specific essid, see [here](https://wiki.freenetproject.org/Probes) for more information )
 
 - dates
 
@@ -37,9 +41,9 @@
 
    ![Fast Foods](results/fastfoods.png)
 
-- hospitals
+- public health
 
-   ![hospitals](results/hospitals.png)
+   ![public health](results/hospitals.png)
    
 - universities
 
@@ -52,6 +56,12 @@
 - Public transports infrastructure
 
    ![tbc](results/tbc.png)
+   
+   As we can see here, public transport have their own infrastructure with 393 devices embedded within public buses looking for BUSTBC, and 108 devices within trams looking for SSID_TRAM and Depot_001. Depot_001 was found close to "la bastide"
+
+    You can even trace buses position
+
+![buses](results/bus_date.png)
 
 - Hotels
 
@@ -71,12 +81,6 @@
 
 Mainly on public wifi, hotels and more than 633 from [Le Ceitya](http://www.hotel-leceitya.com/)
 
-Public transport have their own infrastructure with 393 devices embedded within public buses looking for BUSTBC, and 108 devices within trams looking for SSID_TRAM and Depot_001.
-
-You can even trace buses position
-
-![buses](results/bus_date.png)
-
 
 - 62 postmans using the [facteo](http://laposte.insa-rennes.fr/facteo/) service on a samsumg device
 
@@ -91,8 +95,16 @@ You can even trace buses position
 
 ### Through their wifi fingerprint
 
+As with bluetouth, each device may be formally identified by its bssid. Thanks to that, I can be sure that this "men" took the A tram from Meriadek to Lycee Dagin the 14th july 2016 around 11am UTC. I never met him again.
+
+   ![same tram](results/same_tram.png)
+   
+This other "men" that I probably met once on the A tram seems to like dominos pizza, seems to travel around the world using [metropolis](https://www.wifimetropolis.com/fr) to stay connected and is sill learning at formasup.
+
+   ![station probes](results/station_probes.png)
+
 You may ever find that some people on the tram are close friends because of their probes request.
-For exemple Sonos unique network ssid may be a good clue.
+For exemple Sonos unique network ssid may be a good clue: close friends may share their music on these devices
 
 ````select count(*) as count, essid from probes where essid like "sonos%" group by essid order by count DESC````
 
@@ -108,16 +120,16 @@ For exemple Sonos unique network ssid may be a good clue.
 ...
 ````
 
-Don't forget that for each device, you are able to find where you scanned it, how many times...
+Don't forget that for each separate device, you are able to find where you scanned it, how many times, when and to wich other spot it was connected...
 
 ## Going further
 
 - All these scan were mainly done thanks to a Raspberry pi, a serial GPS and an external battery pack.
-  But scanning more data at several city points to profile users and find people streams is also available with low cost devices such as esp8266. Using dns tunneling on available public networks, you can build cheaps scanners and drop them at some point of the city, to follow users, as explained in the [esp8266-wifiScanMap](https://github.com/mehdilauters/esp8266-wifiScanMap) project
+  But scanning more data at several city points to profile users and find people streams is also available with low cost devices such as esp8266. Using dns tunneling on available public networks, you can build cheaps scanners and drop them at some points of the city, to follow users, as explained in the [esp8266-wifiScanMap](https://github.com/mehdilauters/esp8266-wifiScanMap) project
 
   ![droppable magnetic scanner](https://raw.githubusercontent.com/mehdilauters/esp8266-wifiScanMap/master/doc/blackbox_open.png)
   
-- Associated with a more aggressive project, creating on-demand access point you can also improve you user profiling using dns queries, or even faking common protocols as done on the following [wifi](https://github.com/JDRobotter/wifi) project.
+- Associated with a more aggressive project, creating on-demand access point you can also improve your user profiling using dns queries, or even faking common protocols (pop, ftp...) as done on the following [wifi](https://github.com/JDRobotter/wifi) project.
 
 
 
