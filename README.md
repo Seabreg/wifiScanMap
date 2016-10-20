@@ -16,6 +16,10 @@ An esp8266 version is available here [esp8266-wifiScanMap](https://github.com/me
 ![WifiScanMap](https://github.com/mehdilauters/esp8266-wifiScanMap/raw/master/doc/blackbox_open.png)
 
 
+## Results
+
+You can find a quick analysis of a ~6 month collect reading [Results.md](Results.md)
+
 ## installation
 - bower install
 - sudo apt install gpsd aircrack-ng bluez
@@ -23,7 +27,7 @@ An esp8266 version is available here [esp8266-wifiScanMap](https://github.com/me
 - http://localhost:8686
 
 
-## Features
+## Features
 
 - locate wifi acess point and its metadata bssid, essid, signal and encryption
 - locate itself thanks to already known access points
