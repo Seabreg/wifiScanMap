@@ -40,7 +40,7 @@ You want to discover your city's public transport infrastructure? If people cros
   
 ## First, let's begin with some interresting essid found, mainly in Bordeaux
 
-Using a french dictionary and a small python code to match essid against french words, you can also find funny essid names.
+Using a french dictionary and a small python code to match essid against french words, you can also find many puns.
 
 - Actives ta 3G espece de radin
 - adrienestunpingouin_EXT
