@@ -14,6 +14,7 @@ import re
 import sqlite3
 from threading import Thread
 from math import radians, cos, sin, asin, sqrt, floor
+import hashlib
 
 import datetime
 
@@ -45,6 +46,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--interface", help="wifi interface")    
     parser.add_argument("-s", "--sleep", help="wifi interface")  
+    parser.add_argument('-x', '--anonymize', action='store_true', help='anonymize last 3 bytes of bssid')
     parser.add_argument("-d", "--database", help="wifi database")
     parser.add_argument("-n", "--dns", action='store_true', help="dns name server for dns data exfiltration")
     parser.add_argument('-w', '--www', help='www port')
@@ -654,9 +656,18 @@ class Application (threading.Thread):
         except:
           self.log("DB", 'Commit unavailable')
     
+    def anonymize_bssid(self, bssid):
+      if self.args.anonymize:
+        b = bssid.split(':')
+        b0 = b[:3]
+        b1 = b[3:]
+        return '%s:%s'%(':'.join(b0),hashlib.sha256(':'.join(b1)).hexdigest())
+      return bssid
+    
     def update_dns(self,dns):
-      dns['bssid'] = dns['bssid'].upper()
-      q = '''select * from users_dns where bssid="%s" and host="%s"'''%(dns["bssid"], dns["host"])
+      dns['bssid'] = self.anonymize_bssid(dns['bssid'].upper())
+      
+      q = '''select * from users_dns where bssid="%s" and host="%s"'''%(self.dns["bssid"], dns["host"])
       res = self.fetchone(q)
       if res is None:
         q = '''insert into users_dns (bssid, host) values ("%s","%s")'''%(dns["bssid"], dns["host"])
@@ -670,6 +681,7 @@ class Application (threading.Thread):
     def update_bt_station(self, station):
       if not station.has_key('latitude'):
         return False
+      station['bssid'] = self.anonymize_bssid(station['bssid'])
       q = '''select * from bt_stations where bssid="%s" and latitude="%s" and longitude="%s" and (julianday('now') - julianday(date))*24 < 2'''%(station["bssid"], station["latitude"], station["longitude"])
       res = self.fetchone(q)
       if res is None:
@@ -700,7 +712,8 @@ class Application (threading.Thread):
         date_str = 'CURRENT_TIMESTAMP'
         if(wifi.has_key('date')):
           date_str = '"%s"'%wifi['date']
-                
+        
+        wifi['bssid'] = self.anonymize_bssid(wifi['bssid'])
         q = '''select * from wifis where bssid="%s" and ( essid="%s" or bssid == "" )'''%(wifi["bssid"], wifi["essid"])
         res = self.fetchone(q)
         if res is None:
@@ -735,6 +748,7 @@ class Application (threading.Thread):
     def update_probe(self, probe):
       if  probe['essid'] == 'encoding_error':
         return False
+      probe['bssid'] = self.anonymize_bssid(probe['bssid'])
       q = '''select * from probes where bssid="%s" and essid="%s"'''%(probe["bssid"], probe["essid"])
       res = self.fetchone(q)
       if res is None:
@@ -749,6 +763,7 @@ class Application (threading.Thread):
     def update_station(self, station):
       if not station.has_key('latitude'):
         return False
+      station['bssid'] = self.anonymize_bssid(station['bssid'])
       q = '''select * from stations where bssid="%s" and latitude="%s" and longitude="%s" and signal=%s and (julianday('now') - julianday(date))*24 < 2 '''%(station["bssid"], station["latitude"], station["longitude"], station["signal"])
       res = self.fetchone(q)
       if res is None:
@@ -851,7 +866,7 @@ class Application (threading.Thread):
       if len(wifis) < 3:
         return None
       for n in wifis:
-        where.append('( bssid = "%s" and essid = "%s")'%(n["bssid"],n["essid"]))
+        where.append('( bssid = "%s" and essid = "%s")'%(self.anonymize_bssid(n["bssid"]),n["essid"]))
       q = "select -signal*latitude/-signal, -signal*longitude/-signal from wifis where %s order by latitude asc, longitude asc"%(' or '.join(where))
       res = self.fetchall(q)
       if res is not None:
