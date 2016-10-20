@@ -38,8 +38,37 @@ You want to discover your city's public transport infrastructure? If people cros
 
   ![Coverage](results/coverage.png)
   
-## First, let's begin with some funny essid found, mainly in Bordeaux
+## First, let's begin with some interresting essid found, mainly in Bordeaux
 
+Using a french dictionary and a small python code to match essid against french words, you can also find funny essid names.
+
+- Actives ta 3G espece de radin
+- adrienestunpingouin_EXT
+- Ilestimpossibledetrouvercettecle
+- payetoiuneconnexion
+- Bouillabaisseunpeulabatjour
+- Jai internet et pas toi
+- cheztamere
+- Cheztasoeur
+- Couille de bouc
+- dommage tu n'a pas le mot  pass
+- freebox_delamoule
+- Freeture sur la ligne
+- Freepouille
+- grosbarbus
+- jesuisleplusbeaudel'immeuble
+- josianelacoquine
+- La Mere Lachaise
+- La mienne est enorme !
+- lestanquet
+- RechercheBlondeaFortePoitrine
+- Sans fil dentaire
+- sechejusteseche
+- Siresireouvrez
+- tu cherches les pb toi
+- eduroam (qui fonctionne)
+
+The full list may be found [there](results/top_names.csv)
 
 ## What if you wanted to add some semantic to your map with some ...
 
@@ -138,6 +167,7 @@ Don't forget that for each separate device, you are able to find where you scann
 - Associated with a more aggressive project, creating on-demand access point you can also improve your user profiling using dns queries, or even faking common protocols (pop, ftp...) as done on the following [wifi](https://github.com/JDRobotter/wifi) project.
 
 
+- You may also find some interesting open wifi such as printers, [camerail](http://www.camerail.com)...
 
 
 
