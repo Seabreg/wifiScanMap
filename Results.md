@@ -157,6 +157,12 @@ For exemple Sonos unique network ssid may be a good clue: close friends may shar
 
 Don't forget that for each separate device, you are able to find where you scanned it, how many times, when and to wich other spot it was connected...
 
+## Localize yourself without GPS
+
+As google do, once you have mapped your way, you can then localize your device without GPS, only using closest essid/bssid couples.
+
+That is done for example to find droppable [esp8266-wifiScanMap](https://github.com/mehdilauters/esp8266-wifiScanMap) positions.
+
 ## Going further
 
 - All these scan were mainly done thanks to 2 Raspberries pi, one with a serial GPS and an external battery pack, and the other at a fixed position to monitor people every day at the same place.
