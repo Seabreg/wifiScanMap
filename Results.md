@@ -1,11 +1,14 @@
 # Bordeaux: a digital urban exploration
 
+You want to discover your city's public transport infrastructure? If people crossing your street are mainly tourists or neighbors? Check if you always take the tram with a given person who likes pizza and travels? Or maybe more when your neighbor is at home or not right now, and use to be there at this time?
+
 ## Wifi Dataset properties
 
 - collected informations
     - wifi access points with position, encryption, bssid and date ( box, public access points... )
     - wifi stations with positions, bssid and date ( ie phones, embedded devices, computers... )
     - probes requests with bssid and date ( request from devices for a specific essid, see [here](https://wiki.freenetproject.org/Probes) for more information )
+    - bluetooth devices, with position, class name and date
 
 - dates
 
@@ -34,6 +37,9 @@
 - Coverage:
 
   ![Coverage](results/coverage.png)
+  
+## First, let's begin with some funny essid found, mainly in Bordeaux
+
 
 ## What if you wanted to add some semantic to your map with some ...
 
@@ -124,8 +130,8 @@ Don't forget that for each separate device, you are able to find where you scann
 
 ## Going further
 
-- All these scan were mainly done thanks to a Raspberry pi, a serial GPS and an external battery pack.
-  But scanning more data at several city points to profile users and find people streams is also available with low cost devices such as esp8266. Using dns tunneling on available public networks, you can build cheaps scanners and drop them at some points of the city, to follow users, as explained in the [esp8266-wifiScanMap](https://github.com/mehdilauters/esp8266-wifiScanMap) project
+- All these scan were mainly done thanks to 2 Raspberries pi, one with a serial GPS and an external battery pack, and the other at a fixed position to monitor people every day at the same place.
+  But scanning more data at several city points in the same time to profile users and find people streams is also available with low cost devices such as esp8266. Using dns tunneling on available public networks, you can build cheaps scanners and drop them at some points of the city, to follow users, as explained in the [esp8266-wifiScanMap](https://github.com/mehdilauters/esp8266-wifiScanMap) project
 
   ![droppable magnetic scanner](https://raw.githubusercontent.com/mehdilauters/esp8266-wifiScanMap/master/doc/blackbox_open.png)
   
