@@ -1,4 +1,5 @@
 #! /bin/bash
+
 ### BEGIN INIT INFO
 # Provides:          wifimap.sh
 # Required-Start:    gpsd
@@ -20,15 +21,15 @@ PIDFILE=/var/lock/wifimap.pid
 # Carry out specific functions when asked to by the system
 case "$1" in
   start)
-    echo "Starting script wifimap "
+    echo 'Starting script wifimap'
 	start-stop-daemon -b --start --exec  path/to/service.sh
     ;;
   stop)
-    echo "Stopping script blah"
-    echo "Could do more here"
+    echo 'Stopping script blah'
+    echo 'Could do more here'
     ;;
   *)
-    echo "Usage: /etc/init.d/blah {start|stop}"
+    echo 'Usage: /etc/init.d/blah {start|stop}'
     exit 1
     ;;
 esac
