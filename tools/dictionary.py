@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 import sqlite3
 import re
 
@@ -54,6 +56,6 @@ for word in reversed(dic):
           res_all.append(n[1])
   
 for word in res:
-  print "\n\n==== %s ===="%word
+  print("\n\n==== %s ===="%word)
   for n in res[word]:
-    print n
+    print(n)

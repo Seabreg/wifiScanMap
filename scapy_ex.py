@@ -22,7 +22,6 @@ from scapy.packet import Packet
 import scapy_ex
 
 
-
 """
 Define a singleton that handles basic output
 """

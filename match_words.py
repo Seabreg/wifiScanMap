@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 dico = 'dico.txt'
 db = 'sorted.csv'
 min_length = 4
@@ -39,7 +41,7 @@ def check_word(w):
       break
     
     if w in e:
-      print e
+      print(e)
       result.append(e)
       essids.remove(e)
   return result
@@ -56,6 +58,6 @@ for r in res:
   partial = r.get(timeout=1)
   results = results + partial
   
-print "========================================="
+print("=========================================")
 for r in results:
-  print r
+  print(r)

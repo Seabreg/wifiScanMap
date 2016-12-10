@@ -106,7 +106,10 @@ class DnsServer(threading.Thread):
       for k,v in self.r_data[sender_id].iteritems():
         d += v
       j = json.loads(d)
-      self.application.log("Dns %s"%j['n'], "%d ap, %d probes, %d stations"%(len(j['ap']), len(j['p']), len(j['s'])))
+      self.application.log("Dns %s"%j['n'],
+                           "%d ap, %d probes, %d stations"%(len(j['ap']),
+                                                            len(j['p']),
+                                                            len(j['s'])))
       self.application.synchronizer.synchronize_esp8266(j)
     except ValueError as e:
       pass
