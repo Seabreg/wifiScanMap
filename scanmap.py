@@ -133,10 +133,11 @@ class Application (threading.Thread):
             args.synchro = self.getConfig('synchro')
         
         self.synchronizer = Synchronizer(self, args.synchro)
-        for esp in self.args.esp.split(','):
-          hostname, lat, lon = esp.split(':')
-          self.synchronizer.esp8266[hostname] = {}
-          self.synchronizer.esp8266[hostname]['position']=(float(lat),float(lon),0)
+        if self.args.esp is not None:
+          for esp in self.args.esp.split(','):
+            hostname, lat, lon = esp.split(':')
+            self.synchronizer.esp8266[hostname] = {}
+            self.synchronizer.esp8266[hostname]['position']=(float(lat),float(lon),0)
         
         if args.synchro is not None:
           self.synchronizer.start()
