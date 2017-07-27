@@ -4,6 +4,8 @@ Scan and map all 802.11 access point, stations probes and Bluetooth peripherals.
 
 Initially inspired by https://github.com/cyberpython/WifiScanAndMap , this projects aims to play with common radio networks: Wi-Fi and Bluetooth.
 
+You can read an article on [Hackaday](http://hackaday.com/2016/12/04/creepy-wireless-stalking-made-easy/).
+
 Using tools such as iwlist, hcitool, or airmon-ng and a gpsd gps to logs data in an SQlite database, it provides a web HMI to monitor data processing and analyze already mapped data.
 
 It was tested on recent Debian / Ubuntu and a flying Raspberry 1.
